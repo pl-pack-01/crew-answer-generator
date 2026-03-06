@@ -6,6 +6,7 @@ import pytest
 
 from app.database import (
     archive_schema,
+    create_new_version,
     init_db,
     list_responses,
     list_schema_versions,
@@ -224,6 +225,58 @@ class TestSchemaPromotion:
         promote_schema("test1", 1)
         schema = load_schema("test1")
         assert schema.status == SchemaStatus.LIVE
+
+
+class TestCreateNewVersion:
+    def test_creates_draft_from_live(self):
+        save_schema(_make_schema(version=1, status=SchemaStatus.LIVE))
+        new = create_new_version("test1", 1)
+        assert new.version == 2
+        assert new.status == SchemaStatus.DRAFT
+        assert new.name == "Test Form"
+        assert len(new.sections[0].questions) == 2
+
+    def test_creates_draft_from_archived(self):
+        save_schema(_make_schema(version=1, status=SchemaStatus.ARCHIVED))
+        new = create_new_version("test1", 1)
+        assert new.version == 2
+        assert new.status == SchemaStatus.DRAFT
+
+    def test_increments_past_highest_version(self):
+        save_schema(_make_schema(version=1, status=SchemaStatus.ARCHIVED))
+        save_schema(_make_schema(version=2, status=SchemaStatus.LIVE))
+        new = create_new_version("test1", 2)
+        assert new.version == 3
+
+    def test_preserves_source_content(self):
+        schema = _make_schema(name="Original", version=1, status=SchemaStatus.LIVE)
+        schema.description = "Test description"
+        save_schema(schema)
+        new = create_new_version("test1", 1)
+        assert new.name == "Original"
+        assert new.description == "Test description"
+        assert new.id == "test1"
+
+    def test_source_unchanged(self):
+        save_schema(_make_schema(version=1, status=SchemaStatus.LIVE))
+        create_new_version("test1", 1)
+        original = load_schema("test1", version=1)
+        assert original.status == SchemaStatus.LIVE
+        assert original.version == 1
+
+    def test_nonexistent_source_raises(self):
+        with pytest.raises(ValueError):
+            create_new_version("test1", 99)
+
+    def test_new_version_is_editable(self):
+        save_schema(_make_schema(version=1, status=SchemaStatus.LIVE))
+        new = create_new_version("test1", 1)
+        loaded = load_schema("test1", version=new.version)
+        loaded.name = "Edited Clone"
+        save_schema(loaded)
+        reloaded = load_schema("test1", version=new.version)
+        assert reloaded.name == "Edited Clone"
+        assert reloaded.status == SchemaStatus.DRAFT
 
 
 class TestResponseOperations:

@@ -9,6 +9,7 @@ from app.models import FieldType, Question, SchemaStatus, Section
 from app.output import generate_filled_docx
 from app.storage import (
     archive_schema,
+    create_new_version,
     list_responses,
     list_schema_versions,
     list_schemas,
@@ -276,6 +277,12 @@ def _render_schemas():
                     if st.button("Re-promote to Live", key=f"repromote_{schema.id}_v{schema.version}"):
                         promote_schema(schema.id, schema.version)
                         st.success(f"v{schema.version} is now **live** again!")
+                        st.rerun()
+
+                if schema.status in (SchemaStatus.LIVE, SchemaStatus.ARCHIVED):
+                    if st.button("Create New Version", key=f"clone_{schema.id}_v{schema.version}"):
+                        new_schema = create_new_version(schema.id, schema.version)
+                        st.success(f"v{new_schema.version} created as **draft** from v{schema.version}. Edit below.")
                         st.rerun()
 
             # Draft schemas get the full editor; live/archived get read-only preview

@@ -212,6 +212,47 @@ def promote_schema(schema_id: str, version: int) -> None:
             )
 
 
+def create_new_version(schema_id: str, source_version: int) -> FormSchema:
+    """Clone an existing schema version into a new draft with an incremented version number."""
+    with _get_connection() as conn:
+        # Find the highest existing version for this schema
+        row = conn.execute(
+            "SELECT MAX(version) as max_ver FROM form_schemas WHERE id = ?",
+            (schema_id,),
+        ).fetchone()
+        next_version = (row["max_ver"] or 0) + 1
+
+        # Load the source version
+        source_row = conn.execute(
+            "SELECT schema_json FROM form_schemas WHERE id = ? AND version = ?",
+            (schema_id, source_version),
+        ).fetchone()
+        if source_row is None:
+            raise ValueError(f"Schema {schema_id} v{source_version} not found")
+
+        schema = FormSchema.model_validate_json(source_row["schema_json"])
+        schema.version = next_version
+        schema.status = SchemaStatus.DRAFT
+        schema.created_at = datetime.now()
+
+        conn.execute(
+            """INSERT INTO form_schemas
+               (id, version, name, description, status, source_filename, schema_json, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                schema.id,
+                schema.version,
+                schema.name,
+                schema.description,
+                schema.status.value,
+                schema.source_filename,
+                schema.model_dump_json(),
+                schema.created_at.isoformat(),
+            ),
+        )
+        return schema
+
+
 def archive_schema(schema_id: str, version: int) -> None:
     """Archive a schema version."""
     with _get_connection() as conn:
