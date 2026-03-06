@@ -29,8 +29,8 @@ page = st.sidebar.radio(
 )
 
 if page == "Customer Intake":
-    from app.pages.customer import render
+    from app.views.customer import render
     render()
 elif page == "Admin":
-    from app.pages.admin import render
+    from app.views.admin import render
     render()

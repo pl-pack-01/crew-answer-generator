@@ -123,7 +123,7 @@ crew-answer-generator/
 │   ├── storage.py       # Facade over database + file storage
 │   ├── ingestion.py     # DOCX parsing + Claude API extraction
 │   ├── output.py        # Filled DOCX generation
-│   └── pages/
+│   └── views/
 │       ├── admin.py     # Admin UI (upload, edit, promote, view responses)
 │       └── customer.py  # Customer-facing guided form
 ├── tests/               # pytest test suite (83 tests)
