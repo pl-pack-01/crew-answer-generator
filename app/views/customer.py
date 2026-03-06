@@ -38,6 +38,8 @@ def render():
     # Initialize missing fields tracking
     if "missing_fields" not in st.session_state:
         st.session_state.missing_fields = set()
+    if "missing_field_names" not in st.session_state:
+        st.session_state.missing_field_names = []
 
     schemas = list_schemas(status=SchemaStatus.LIVE)
     if not schemas:
@@ -96,6 +98,7 @@ def render():
     if st.button("Submit", type="primary"):
         # Validate required fields
         new_missing = set()
+        missing_names = []
         for section in schema.sections:
             for q in section.questions:
                 if q.conditions:
@@ -103,25 +106,23 @@ def render():
                         continue
                 if q.required and not answers.get(q.id):
                     new_missing.add(q.id)
+                    missing_names.append(q.text)
 
         if new_missing:
             st.session_state.missing_fields = new_missing
-            missing_names = []
-            for section in schema.sections:
-                for q in section.questions:
-                    if q.id in new_missing:
-                        missing_names.append(q.text)
-            st.error(f"Please complete the following required fields: {', '.join(missing_names[:5])}")
+            st.session_state.missing_field_names = missing_names
             st.rerun()
             return
 
         if not sign_off:
             st.session_state.missing_fields = set()
+            st.session_state.missing_field_names = []
             st.warning("Please confirm the information is accurate before submitting.")
             return
 
         # Clear missing state and submit
         st.session_state.missing_fields = set()
+        st.session_state.missing_field_names = []
 
         response = FormResponse(
             schema_id=schema.id,
@@ -135,6 +136,12 @@ def render():
         save_response(response)
         st.success("Thank you! Your responses have been submitted successfully.")
         st.balloons()
+
+    # Show validation errors at the bottom after a rerun
+    if st.session_state.get("missing_field_names"):
+        st.error("**Please complete the following required fields:**")
+        for name in st.session_state.missing_field_names:
+            st.markdown(f"- :red[{name}]")
 
 
 def _evaluate_conditions(conditions, current_answers):
