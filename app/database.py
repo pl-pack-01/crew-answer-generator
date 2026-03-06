@@ -253,6 +253,46 @@ def create_new_version(schema_id: str, source_version: int) -> FormSchema:
         return schema
 
 
+def fork_schema(schema_id: str, source_version: int, new_name: str) -> FormSchema:
+    """Fork a schema into a new independent form (new ID, version 1) with a new name.
+
+    Preserves the source_filename so the fork stays tied to the original document.
+    """
+    import uuid
+
+    with _get_connection() as conn:
+        source_row = conn.execute(
+            "SELECT schema_json FROM form_schemas WHERE id = ? AND version = ?",
+            (schema_id, source_version),
+        ).fetchone()
+        if source_row is None:
+            raise ValueError(f"Schema {schema_id} v{source_version} not found")
+
+        schema = FormSchema.model_validate_json(source_row["schema_json"])
+        schema.id = str(uuid.uuid4())[:8]
+        schema.name = new_name
+        schema.version = 1
+        schema.status = SchemaStatus.DRAFT
+        schema.created_at = datetime.now()
+
+        conn.execute(
+            """INSERT INTO form_schemas
+               (id, version, name, description, status, source_filename, schema_json, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                schema.id,
+                schema.version,
+                schema.name,
+                schema.description,
+                schema.status.value,
+                schema.source_filename,
+                schema.model_dump_json(),
+                schema.created_at.isoformat(),
+            ),
+        )
+        return schema
+
+
 def archive_schema(schema_id: str, version: int) -> None:
     """Archive a schema version."""
     with _get_connection() as conn:

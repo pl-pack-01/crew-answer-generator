@@ -7,6 +7,7 @@ import pytest
 from app.database import (
     archive_schema,
     create_new_version,
+    fork_schema,
     init_db,
     list_responses,
     list_schema_versions,
@@ -277,6 +278,48 @@ class TestCreateNewVersion:
         reloaded = load_schema("test1", version=new.version)
         assert reloaded.name == "Edited Clone"
         assert reloaded.status == SchemaStatus.DRAFT
+
+
+class TestForkSchema:
+    def test_fork_creates_new_id(self):
+        save_schema(_make_schema(version=1, status=SchemaStatus.LIVE))
+        forked = fork_schema("test1", 1, "Forked Form")
+        assert forked.id != "test1"
+        assert forked.name == "Forked Form"
+        assert forked.version == 1
+        assert forked.status == SchemaStatus.DRAFT
+
+    def test_fork_preserves_source_filename(self):
+        schema = _make_schema(version=1, status=SchemaStatus.LIVE)
+        schema.source_filename = "original.docx"
+        save_schema(schema)
+        forked = fork_schema("test1", 1, "Forked Form")
+        assert forked.source_filename == "original.docx"
+
+    def test_fork_preserves_questions(self):
+        save_schema(_make_schema(version=1, status=SchemaStatus.LIVE))
+        forked = fork_schema("test1", 1, "Forked Form")
+        loaded = load_schema(forked.id)
+        assert len(loaded.sections[0].questions) == 2
+
+    def test_fork_source_unchanged(self):
+        save_schema(_make_schema(version=1, status=SchemaStatus.LIVE))
+        fork_schema("test1", 1, "Forked Form")
+        original = load_schema("test1", version=1)
+        assert original.name == "Test Form"
+        assert original.status == SchemaStatus.LIVE
+
+    def test_fork_nonexistent_raises(self):
+        with pytest.raises(ValueError):
+            fork_schema("test1", 99, "Nope")
+
+    def test_fork_appears_in_schema_list(self):
+        save_schema(_make_schema(version=1, status=SchemaStatus.LIVE))
+        fork_schema("test1", 1, "Forked Form")
+        schemas = list_schemas()
+        names = {s.name for s in schemas}
+        assert "Test Form" in names
+        assert "Forked Form" in names
 
 
 class TestResponseOperations:

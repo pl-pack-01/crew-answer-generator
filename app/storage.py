@@ -11,6 +11,7 @@ from pathlib import Path
 from .database import (
     archive_schema,
     create_new_version,
+    fork_schema,
     init_db,
     list_responses,
     list_schema_versions,
@@ -61,6 +62,7 @@ __all__ = [
     "promote_schema",
     "archive_schema",
     "create_new_version",
+    "fork_schema",
     "save_response",
     "load_response",
     "list_responses",

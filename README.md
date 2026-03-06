@@ -101,8 +101,9 @@ The app will be available at `http://localhost:8501`.
 1. Navigate to **Admin** in the sidebar
 2. **Upload Document** — upload a DOCX, Claude AI parses it into a structured schema (created as **draft**)
 3. **Form Schemas** — review the extracted questions, edit anything (text, field types, options, sections), then **Promote to Live**
-4. Upload new versions at any time — previous versions are preserved and archived automatically
-5. **Customer Responses** — view submissions, download filled DOCX documents
+4. **Create New Version** — clone a live or archived schema into a new editable draft. Keep the same name to create a new version, or change the name to fork it into an independent form (still linked to the original source document)
+5. Upload new versions at any time — previous versions are preserved and archived automatically
+6. **Customer Responses** — view submissions, download filled DOCX documents
 
 ### Customer Workflow
 1. Navigate to **Customer Intake** in the sidebar
@@ -125,7 +126,7 @@ crew-answer-generator/
 │   └── pages/
 │       ├── admin.py     # Admin UI (upload, edit, promote, view responses)
 │       └── customer.py  # Customer-facing guided form
-├── tests/               # pytest test suite (70 tests)
+├── tests/               # pytest test suite (83 tests)
 ├── data/                # Runtime data (SQLite DB, uploads) — gitignored
 ├── requirements.txt
 ├── .env.example
@@ -204,6 +205,8 @@ Customer answers are mapped back and a pre-filled DOCX is generated. Responses a
 Admin console for full lifecycle management. New uploads create new draft versions. Promoting a version automatically archives the previous live version.
 
 - Upload new versions — previous versions preserved
+- Create new version from any live or archived schema (clone into editable draft)
+- Fork a schema into a new independent form with a different name (retains link to original source document)
 - Promote / archive / re-promote workflow
 - Version history visible per schema
 - Responses reference the exact version they were submitted against
