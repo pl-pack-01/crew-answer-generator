@@ -24,7 +24,7 @@ setup()
 # Sidebar navigation
 page = st.sidebar.radio(
     "Navigation",
-    ["Customer Intake", "Admin"],
+    ["Customer Intake", "Admin", "Settings"],
     index=0,
 )
 
@@ -33,4 +33,7 @@ if page == "Customer Intake":
     render()
 elif page == "Admin":
     from app.views.admin import render
+    render()
+elif page == "Settings":
+    from app.views.settings import render
     render()

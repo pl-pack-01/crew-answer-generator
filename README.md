@@ -104,6 +104,7 @@ The app will be available at `http://localhost:8501`.
 4. **Create New Version** — clone a live or archived schema into a new editable draft. Keep the same name to create a new version, or change the name to fork it into an independent form (still linked to the original source document)
 5. Upload new versions at any time — previous versions are preserved and archived automatically
 6. **Customer Responses** — view submissions, download filled DOCX documents
+7. **Settings** — view connection health (database, file storage, Anthropic API) and configuration paths
 
 ### Customer Workflow
 1. Navigate to **Customer Intake** in the sidebar
@@ -125,7 +126,8 @@ crew-answer-generator/
 │   ├── output.py        # Filled DOCX generation
 │   └── views/
 │       ├── admin.py     # Admin UI (upload, edit, promote, view responses)
-│       └── customer.py  # Customer-facing guided form
+│       ├── customer.py  # Customer-facing guided form
+│       └── settings.py  # Settings & connection health checks
 ├── tests/               # pytest test suite (83 tests)
 ├── data/                # Runtime data (SQLite DB, uploads) — gitignored
 ├── requirements.txt
