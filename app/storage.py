@@ -1,82 +1,68 @@
-"""JSON file-based storage for form schemas and responses."""
+"""Storage facade. Delegates to SQLite for data and LocalFileStorage for uploads.
+
+This module maintains the same public API so existing code (admin, customer pages)
+continues to work with minimal changes.
+"""
 
 from __future__ import annotations
 
-import json
-from datetime import datetime
 from pathlib import Path
 
-from .models import FormResponse, FormSchema
+from .database import (
+    archive_schema,
+    init_db,
+    list_responses,
+    list_schema_versions,
+    list_schemas,
+    load_live_schema,
+    load_response,
+    load_schema,
+    promote_schema,
+    save_response,
+    save_schema,
+)
+from .file_storage import LocalFileStorage
+from .models import FormResponse, FormSchema, SchemaStatus
 
 DATA_DIR = Path(__file__).parent.parent / "data"
-SCHEMAS_DIR = DATA_DIR / "schemas"
-RESPONSES_DIR = DATA_DIR / "responses"
-UPLOADS_DIR = DATA_DIR / "uploads"
+
+_file_storage: LocalFileStorage | None = None
 
 
-def _ensure_dirs():
-    for d in [SCHEMAS_DIR, RESPONSES_DIR, UPLOADS_DIR]:
-        d.mkdir(parents=True, exist_ok=True)
+def get_file_storage() -> LocalFileStorage:
+    global _file_storage
+    if _file_storage is None:
+        _file_storage = LocalFileStorage(DATA_DIR / "uploads")
+    return _file_storage
 
 
-def save_schema(schema: FormSchema) -> Path:
-    _ensure_dirs()
-    path = SCHEMAS_DIR / f"{schema.id}_v{schema.version}.json"
-    path.write_text(schema.model_dump_json(indent=2), encoding="utf-8")
-    # Also write a "latest" pointer
-    latest = SCHEMAS_DIR / f"{schema.id}_latest.json"
-    latest.write_text(schema.model_dump_json(indent=2), encoding="utf-8")
-    return path
-
-
-def load_schema(schema_id: str, version: int | None = None) -> FormSchema | None:
-    _ensure_dirs()
-    if version:
-        path = SCHEMAS_DIR / f"{schema_id}_v{version}.json"
-    else:
-        path = SCHEMAS_DIR / f"{schema_id}_latest.json"
-    if not path.exists():
-        return None
-    return FormSchema.model_validate_json(path.read_text(encoding="utf-8"))
-
-
-def list_schemas() -> list[FormSchema]:
-    _ensure_dirs()
-    schemas = []
-    for path in SCHEMAS_DIR.glob("*_latest.json"):
-        schemas.append(FormSchema.model_validate_json(path.read_text(encoding="utf-8")))
-    schemas.sort(key=lambda s: s.created_at, reverse=True)
-    return schemas
-
-
-def save_response(response: FormResponse) -> Path:
-    _ensure_dirs()
-    path = RESPONSES_DIR / f"{response.id}.json"
-    path.write_text(response.model_dump_json(indent=2), encoding="utf-8")
-    return path
-
-
-def load_response(response_id: str) -> FormResponse | None:
-    _ensure_dirs()
-    path = RESPONSES_DIR / f"{response_id}.json"
-    if not path.exists():
-        return None
-    return FormResponse.model_validate_json(path.read_text(encoding="utf-8"))
-
-
-def list_responses(schema_id: str | None = None) -> list[FormResponse]:
-    _ensure_dirs()
-    responses = []
-    for path in RESPONSES_DIR.glob("*.json"):
-        r = FormResponse.model_validate_json(path.read_text(encoding="utf-8"))
-        if schema_id is None or r.schema_id == schema_id:
-            responses.append(r)
-    responses.sort(key=lambda r: r.submitted_at or datetime.min, reverse=True)
-    return responses
+def setup(db_path: str | Path | None = None):
+    """Initialize database and file storage. Call once at app startup."""
+    init_db(db_path)
+    get_file_storage()
 
 
 def save_upload(filename: str, content: bytes) -> Path:
-    _ensure_dirs()
-    path = UPLOADS_DIR / filename
-    path.write_bytes(content)
-    return path
+    """Save an uploaded file. Returns the full local path."""
+    fs = get_file_storage()
+    fs.save(filename, content)
+    return Path(fs.full_path(filename))
+
+
+# Re-export database functions for backward compatibility
+__all__ = [
+    "setup",
+    "save_schema",
+    "load_schema",
+    "load_live_schema",
+    "list_schemas",
+    "list_schema_versions",
+    "promote_schema",
+    "archive_schema",
+    "save_response",
+    "load_response",
+    "list_responses",
+    "save_upload",
+    "get_file_storage",
+    "SchemaStatus",
+]

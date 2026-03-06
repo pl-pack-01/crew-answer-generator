@@ -4,14 +4,15 @@ from datetime import datetime
 
 import streamlit as st
 
-from app.models import FieldType, FormResponse
-from app.storage import list_schemas, load_schema, save_response
+from app.models import FieldType, FormResponse, SchemaStatus
+from app.storage import list_schemas, load_live_schema, save_response
 
 
 def render():
     st.title("Customer Intake Form")
 
-    schemas = list_schemas()
+    # Only show live schemas to customers
+    schemas = list_schemas(status=SchemaStatus.LIVE)
     if not schemas:
         st.info("No forms are currently available. Please check back later.")
         return
@@ -19,7 +20,7 @@ def render():
     # Form selection
     schema_options = {s.name: s.id for s in schemas}
     selected_name = st.selectbox("Select a form to fill out", list(schema_options.keys()))
-    schema = load_schema(schema_options[selected_name])
+    schema = load_live_schema(schema_options[selected_name])
 
     if not schema:
         st.error("Form not found.")

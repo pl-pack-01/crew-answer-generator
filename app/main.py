@@ -11,6 +11,10 @@ st.set_page_config(
     layout="wide",
 )
 
+# Initialize database on first run
+from app.storage import setup
+setup()
+
 # Sidebar navigation
 page = st.sidebar.radio(
     "Navigation",

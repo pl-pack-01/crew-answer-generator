@@ -8,6 +8,7 @@ from app.models import (
     FormResponse,
     FormSchema,
     Question,
+    SchemaStatus,
     Section,
 )
 
@@ -65,8 +66,15 @@ def test_form_schema_defaults():
     schema = FormSchema(name="Test Form")
     assert schema.name == "Test Form"
     assert schema.version == 1
+    assert schema.status == SchemaStatus.DRAFT
     assert schema.sections == []
     assert isinstance(schema.created_at, datetime)
+
+
+def test_schema_status_values():
+    assert SchemaStatus.DRAFT.value == "draft"
+    assert SchemaStatus.LIVE.value == "live"
+    assert SchemaStatus.ARCHIVED.value == "archived"
 
 
 def test_form_schema_serialization():

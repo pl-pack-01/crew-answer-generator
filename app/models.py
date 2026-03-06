@@ -18,6 +18,12 @@ class FieldType(str, Enum):
     NUMBER = "number"
 
 
+class SchemaStatus(str, Enum):
+    DRAFT = "draft"
+    LIVE = "live"
+    ARCHIVED = "archived"
+
+
 class Condition(BaseModel):
     """Show this question only when a previous question has a specific answer."""
     question_id: str
@@ -49,6 +55,7 @@ class FormSchema(BaseModel):
     name: str
     description: Optional[str] = None
     version: int = 1
+    status: SchemaStatus = SchemaStatus.DRAFT
     created_at: datetime = Field(default_factory=datetime.now)
     source_filename: Optional[str] = None
     sections: list[Section] = []

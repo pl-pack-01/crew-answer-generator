@@ -14,7 +14,7 @@ Modernizing customer information intake from static Word/Excel questionnaires to
 A 3-layer system: **Document Ingestion** > **Interactive Customer Form** > **Filled Document Output**
 
 ### Document Ingestion (Admin)
-Upload a DOCX questionnaire and the Claude API automatically extracts all questions into a structured, versioned JSON schema. Field types (dropdown, yes/no, text, date, etc.) are detected intelligently.
+Upload a DOCX questionnaire and the Claude API automatically extracts all questions into a structured, versioned schema stored in SQLite. Field types (dropdown, yes/no, text, date, etc.) are detected intelligently. Admins can edit any question before promoting to live.
 
 ### Customer Intake Form
 A dynamic form rendered from the schema with:
@@ -22,9 +22,10 @@ A dynamic form rendered from the schema with:
 - Constrained fields (dropdowns, multi-select, date pickers)
 - Required field validation
 - Explicit sign-off confirmation
+- Only **live** schemas are visible to customers
 
 ### Filled Document Output
-Customer answers are merged back into a generated DOCX document, ready for download — no manual re-entry required.
+Customer answers are merged back into a generated DOCX document, ready for download — no manual re-entry required. Each response is permanently tied to the schema version it was submitted against.
 
 ## Setup
 
@@ -62,14 +63,15 @@ The app will be available at `http://localhost:8501`.
 
 ### Admin Workflow
 1. Navigate to **Admin** in the sidebar
-2. Upload a DOCX questionnaire under **Upload Document**
-3. Review the extracted schema (questions, field types, sections)
-4. To update a form, upload a new version under **Form Schemas** — previous versions are preserved
+2. **Upload Document** — upload a DOCX, Claude AI parses it into a structured schema (created as **draft**)
+3. **Form Schemas** — review the extracted questions, edit anything (text, field types, options, sections), then **Promote to Live**
+4. Upload new versions at any time — previous versions are preserved and archived automatically
+5. **Customer Responses** — view submissions, download filled DOCX documents
 
 ### Customer Workflow
 1. Navigate to **Customer Intake** in the sidebar
-2. Select a form and fill out the guided questions
-3. Confirm and submit
+2. Select a form (only live schemas appear) and fill out the guided questions
+3. Confirm accuracy and submit
 4. Admin can download the filled document from **Customer Responses**
 
 ## Project Structure
@@ -78,15 +80,17 @@ The app will be available at `http://localhost:8501`.
 crew-answer-generator/
 ├── app/
 │   ├── main.py          # Streamlit entry point
-│   ├── models.py        # Pydantic data models
-│   ├── storage.py       # JSON file-based storage with versioning
+│   ├── models.py        # Pydantic data models (Question, Section, FormSchema, FormResponse)
+│   ├── database.py      # SQLite storage layer (swappable to PostgreSQL)
+│   ├── file_storage.py  # File storage abstraction (local, swappable to S3)
+│   ├── storage.py       # Facade over database + file storage
 │   ├── ingestion.py     # DOCX parsing + Claude API extraction
 │   ├── output.py        # Filled DOCX generation
 │   └── pages/
-│       ├── admin.py     # Admin UI (upload, manage, view responses)
+│       ├── admin.py     # Admin UI (upload, edit, promote, view responses)
 │       └── customer.py  # Customer-facing guided form
-├── tests/               # pytest test suite
-├── data/                # Runtime data (schemas, responses, uploads) - gitignored
+├── tests/               # pytest test suite (70 tests)
+├── data/                # Runtime data (SQLite DB, uploads) — gitignored
 ├── requirements.txt
 ├── .env.example
 └── .gitignore
@@ -101,157 +105,87 @@ python -m pytest tests/ -v
 
 ## Tech Stack
 
-- **Streamlit** — frontend UI
-- **Claude API** — document parsing and question extraction
-- **python-docx** — DOCX reading and generation
-- **Pydantic** — data validation and serialization
-- **JSON files** — schema and response storage (versioned)
+| Layer | Technology |
+|---|---|
+| Frontend UI | Streamlit (Python) |
+| Document parsing | Claude API (text extraction + field type detection) |
+| DOCX reading/generation | python-docx |
+| Data validation | Pydantic |
+| Database | SQLite (designed for PostgreSQL swap) |
+| File storage | Local filesystem (designed for S3 swap) |
 
 ## Development Plan
 
-# CREW: Modernizing Customer Information Intake
-
-**From Static Word Forms → Structured, Guided, Auditable Intake**
-
-> This tool ingests existing Word/PDF questionnaires, converts them into guided customer-facing forms with dropdowns and constrained fields, and outputs pre-filled documents upon submission — eliminating manual re-entry and version drift.
-
----
-
-## The Problem
-
-| Pain Point | Impact |
-|---|---|
-| Dozens of separate questionnaires, no single entry point | Customer confusion, inconsistent experience |
-| Customers manually fill Word/PDF documents | Incomplete answers, free-text where structure is needed |
-| CTLs/CSDMs manually re-interpret and re-enter data | Wasted time, transcription errors |
-| No auditable sign-off mechanism | Scope creep, delivery disputes |
-| Template updates don't reach customers | Teams working from stale versions |
-
----
-
-## End-to-End Flow
+### End-to-End Flow
 
 ```
-Admin uploads DOCX/PDF form
+Admin uploads DOCX form
         ↓
-AI extracts all questions → versioned JSON schema stored
+AI extracts all questions → versioned schema stored in SQLite (draft)
         ↓
-Customer opens dynamic guided form (rendered from schema)
+Admin reviews, edits questions, promotes to live
+        ↓
+Customer opens dynamic guided form (rendered from live schema)
         ↓
 Customer completes dropdowns, constrained fields, sign-off
         ↓
-System generates pre-filled DOCX + PDF confirmation
+System generates pre-filled DOCX
         ↓
 Delivery team receives structured handoff artifact
 ```
 
----
+### Phase 1 — Document Ingestion & Schema Extraction [COMPLETE]
 
-## Phase 1 — Document Ingestion & Schema Extraction
-**Timeline: Weeks 1–2**
+Admin uploads an existing Word questionnaire. The Claude AI layer parses the document, identifies every question, and maps each to a field type. The result is a versioned schema stored in SQLite.
 
-An admin uploads an existing Word or PDF questionnaire. The Claude AI layer parses the document, identifies every question, and maps each to a field type — yes/no answers become dropdowns, state fields become state pickers, free text becomes textareas. The result is a versioned JSON schema stored in the system.
+- Admin upload interface (DOCX)
+- Claude API: document parsing to structured schema
+- SQLite storage with version tracking
+- Draft/live/archived status lifecycle
+- Admin can edit questions, field types, options, sections before promoting
+- Preview before publish
 
-**Components:**
-- Admin upload interface (drag & drop DOCX/PDF)
-- Claude API: document parsing → structured JSON schema
-- Version store: each upload gets a version number + timestamp
-- Active version flag — admin promotes a version to "live"
-- Preview: admin sees the generated form before publishing
+### Phase 2 — Guided Customer Intake Form [COMPLETE]
 
-**Output:** A versioned JSON schema representing every question in the original document.
+The schema drives a dynamic Streamlit form. Routing questions determine which downstream questions appear. Only live schemas are visible to customers.
 
-**Tech:** Claude API, Node.js/Express, file storage (S3 or local), SQLite/Postgres
-
----
-
-## Phase 2 — Guided Customer Intake Form
-**Timeline: Weeks 2–4**
-
-The JSON schema from Phase 1 drives a dynamic web-based intake form. Early routing questions (solution area, environment type) determine which downstream questions appear. Customers only see what's relevant to them. All list-type fields render as dropdowns. Responses auto-save so customers can return mid-session.
-
-**Components:**
 - Dynamic form renderer (reads schema, builds UI automatically)
-- Progressive disclosure engine: question visibility rules based on prior answers
+- Progressive disclosure: question visibility rules based on prior answers
 - Constrained field types: dropdowns, multi-select, date pickers, textareas
-- Auto-save: partial responses preserved across sessions
-- Explicit sign-off step: customer confirms requirements are complete before submitting
+- Explicit sign-off step
+- Responses tied to specific schema version
 
-**Output:** A structured, validated JSON response object keyed to the active schema version.
+### Phase 3 — Filled Document Output [COMPLETE]
 
-**Tech:** React, Tailwind CSS, React Hook Form or Zustand, backend response storage
+Customer answers are mapped back and a pre-filled DOCX is generated. Responses are permanently tied to the schema version they were submitted against.
 
----
+- DOCX generation with all Q&A pairs, section headings, customer info
+- Download from admin responses tab
+- Audit trail: submitter, schema version, timestamp, sign-off status
 
-## Phase 3 — Filled Document Output
-**Timeline: Weeks 3–5**
+### Phase 4 — Version Management & Governance [COMPLETE]
 
-Once a customer submits, the system maps their answers back to the original document template and generates a pre-filled Word document. This eliminates CTL/CSDM manual re-entry entirely. The completed document is emailed to both the customer (as confirmation) and the delivery team (as a structured handoff artifact).
+Admin console for full lifecycle management. New uploads create new draft versions. Promoting a version automatically archives the previous live version.
 
-**Components:**
-- Answer-to-field mapping engine (links JSON response back to document placeholders)
-- DOCX generation: pre-filled questionnaire via docxtemplater
+- Upload new versions — previous versions preserved
+- Promote / archive / re-promote workflow
+- Version history visible per schema
+- Responses reference the exact version they were submitted against
+
+### Remaining Work
+
+- Auto-save: partial customer responses preserved across sessions
 - PDF export for read-only confirmation copy
-- Download link + email delivery on submission
-- Audit trail: submitter, schema version, timestamp
-
-**Output:** A completed, pre-filled DOCX matching the original questionnaire format, with all customer answers inserted.
-
-**Tech:** docxtemplater, pdf-lib or LibreOffice, Node.js generation service, SendGrid or internal SMTP
-
----
-
-## Phase 4 — Version Management & Governance
-**Timeline: Ongoing**
-
-A lightweight admin console lets the team upload new document versions at any time. In-progress customer sessions stay on the version they started. New sessions always use the active version. All prior versions are archived and accessible for historical reference.
-
-**Components:**
-- Admin console: upload, preview, promote to live
-- Version history: see which responses used which schema version
-- In-progress session protection: customers mid-form are not affected by new uploads
+- Email delivery on submission (SendGrid or internal SMTP)
 - Change diff: see what questions changed between versions
-- Rollback: re-promote any prior version if needed
-
-**Output:** A governed, auditable version history ensuring delivery teams always know which intake version a customer responded to.
-
-**Tech:** React admin dashboard, jsondiffpatch, immutable versioned response records in DB
-
----
-
-## Delivery Timeline
-
-| Week | Work |
-|---|---|
-| Week 1 | Backend setup, file upload endpoint, Claude API parsing integration |
-| Week 2 | Schema storage + versioning, admin upload UI, form preview |
-| Week 3 | Dynamic form renderer, progressive disclosure engine, auto-save |
-| Week 4 | Submission + sign-off flow, DOCX output generation, email delivery |
-| Week 5 | Admin console, version management UI, end-to-end testing |
-
----
+- Rollback: re-promote any prior version (partially implemented — archived versions can be re-promoted)
 
 ## Pilot Recommendation
 
-Start with **Data Movement or External Integrations** — the highest-friction intake area, with the most naturally structured field types (IPs, endpoints, protocols, environment names all map cleanly to dropdowns). This matches the incremental path outlined in the CREW action plan.
+Start with **Data Movement or External Integrations** — the highest-friction intake area, with the most naturally structured field types (IPs, endpoints, protocols, environment names all map cleanly to dropdowns).
 
 1. Upload the existing data movement questionnaire
-2. Review the AI-generated schema — adjust any misclassified fields
-3. Publish the form to 2–3 pilot customers
+2. Review the AI-generated schema — adjust any misclassified fields in the editor
+3. Promote to live and share with 2-3 pilot customers
 4. Measure: time to complete vs. old method, CTL re-entry time eliminated, submission completeness
 5. Iterate schema, then expand to the next intake area
-
----
-
-## Tech Stack Summary
-
-| Layer | Technology |
-|---|---|
-| Document parsing | Claude API (vision + text extraction) |
-| Schema storage | JSON + SQLite or Postgres |
-| Admin UI | React |
-| Customer form UI | React (dynamic schema renderer) |
-| DOCX output | docxtemplater |
-| PDF output | pdf-lib or LibreOffice |
-| Backend API | Node.js / Express |
-| Email delivery | SendGrid or internal SMTP |
