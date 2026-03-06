@@ -31,31 +31,67 @@ Customer answers are merged back into a generated DOCX document, ready for downl
 
 ### Prerequisites
 - Python 3.11+
-- An Anthropic API key
+- An Anthropic API key ([get one here](https://console.anthropic.com/))
 
-### Install
+### Windows
 
-```bash
-pip install -r requirements.txt
-```
+1. **Install Python** from the [Microsoft Store](https://apps.microsoft.com/detail/9nrwmjp3717k) or [python.org](https://www.python.org/downloads/). Make sure "Add to PATH" is checked during install.
 
-### Configure
+2. **Clone and set up the project:**
+   ```powershell
+   git clone <repo-url>
+   cd crew-answer-generator
+   python -m venv .venv
+   .venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
 
-```bash
-cp .env.example .env
-```
+3. **Configure your API key:**
+   ```powershell
+   copy .env.example .env
+   ```
+   Open `.env` in a text editor and add your Anthropic API key:
+   ```
+   ANTHROPIC_API_KEY=your-api-key-here
+   ```
 
-Edit `.env` and add your Anthropic API key:
+4. **Run the app:**
+   ```powershell
+   streamlit run app/main.py
+   ```
 
-```
-ANTHROPIC_API_KEY=your-api-key-here
-```
+### macOS
 
-### Run
+1. **Install Python** (if not already available):
+   ```bash
+   brew install python@3.11
+   ```
+   Or download from [python.org](https://www.python.org/downloads/).
 
-```bash
-streamlit run app/main.py
-```
+2. **Clone and set up the project:**
+   ```bash
+   git clone <repo-url>
+   cd crew-answer-generator
+   python3 -m venv .venv
+   source .venv/bin/activate
+   pip install -r requirements.txt
+   ```
+
+3. **Configure your API key:**
+   ```bash
+   cp .env.example .env
+   ```
+   Open `.env` and add your Anthropic API key:
+   ```
+   ANTHROPIC_API_KEY=your-api-key-here
+   ```
+
+4. **Run the app:**
+   ```bash
+   streamlit run app/main.py
+   ```
+
+### After Launch
 
 The app will be available at `http://localhost:8501`.
 
