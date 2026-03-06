@@ -47,7 +47,12 @@ def render():
         return
 
     schema_options = {s.name: s.id for s in schemas}
-    selected_name = st.selectbox("Select a form to fill out", list(schema_options.keys()))
+    selected_name = st.selectbox("Select a form to fill out", list(schema_options.keys()),
+                                 index=None, placeholder="Choose a form...")
+
+    if not selected_name:
+        return
+
     schema = load_live_schema(schema_options[selected_name])
 
     if not schema:
