@@ -1,11 +1,13 @@
 """Admin page: upload documents, manage schemas, view responses."""
 
+import json
 import uuid
 
 import streamlit as st
 
+from app.html_export import generate_html_form
 from app.ingestion import ingest_document
-from app.models import FieldType, Question, SchemaStatus, Section
+from app.models import FieldType, FormResponse, Question, ResponseStatus, SchemaStatus, Section
 from app.output import generate_filled_docx
 from app.storage import (
     archive_schema,
@@ -14,8 +16,10 @@ from app.storage import (
     list_responses,
     list_schema_versions,
     list_schemas,
+    load_live_schema,
     load_schema,
     promote_schema,
+    save_response,
     save_schema,
     save_upload,
 )
@@ -274,6 +278,15 @@ def _render_schemas():
                         st.success(f"v{schema.version} archived.")
                         st.rerun()
 
+                    html_content = generate_html_form(schema)
+                    st.download_button(
+                        "Export as HTML",
+                        html_content,
+                        file_name=f"{schema.name.replace(' ', '_')}_form.html",
+                        mime="text/html",
+                        key=f"export_html_{schema.id}_v{schema.version}",
+                    )
+
                 if schema.status == SchemaStatus.ARCHIVED:
                     if st.button("Re-promote to Live", key=f"repromote_{schema.id}_v{schema.version}"):
                         promote_schema(schema.id, schema.version)
@@ -338,6 +351,39 @@ def _render_schemas():
 
 def _render_responses():
     st.header("Customer Responses")
+
+    # --- Import JSON response ---
+    with st.expander("Import JSON response"):
+        uploaded_json = st.file_uploader("Upload a JSON response file", type=["json"], key="import_json")
+        if uploaded_json and st.button("Import", key="btn_import_json"):
+            try:
+                data = json.loads(uploaded_json.getvalue())
+                schema = load_schema(data["schema_id"], data["schema_version"])
+                if not schema:
+                    st.error(f"Schema {data['schema_id']} v{data['schema_version']} not found in the database.")
+                else:
+                    from datetime import datetime
+                    status = ResponseStatus.SUBMITTED if data.get("status") == "submitted" else ResponseStatus.DRAFT
+                    response = FormResponse(
+                        schema_id=data["schema_id"],
+                        schema_version=data["schema_version"],
+                        status=status,
+                        customer_name=data.get("customer_name"),
+                        answers=data.get("answers", {}),
+                        submitted_at=datetime.now() if status == ResponseStatus.SUBMITTED else None,
+                        signed_off=data.get("signed_off", False),
+                        signed_off_at=datetime.now() if data.get("signed_off") else None,
+                    )
+                    save_response(response)
+                    st.success(
+                        f"Imported response from **{response.customer_name or 'Unknown'}** "
+                        f"for **{schema.name}** v{schema.version} ({status.value})."
+                    )
+                    st.rerun()
+            except (json.JSONDecodeError, KeyError) as e:
+                st.error(f"Invalid JSON file: {e}")
+
+    st.divider()
 
     schemas = list_schemas()
     if not schemas:

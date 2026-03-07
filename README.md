@@ -103,16 +103,25 @@ The app will be available at `http://localhost:8501`.
 3. **Form Schemas** — review the extracted questions, edit anything (text, field types, options, sections), then **Promote to Live**
 4. **Create New Version** — clone a live or archived schema into a new editable draft. Keep the same name to create a new version, or change the name to fork it into an independent form (still linked to the original source document)
 5. Upload new versions at any time — previous versions are preserved and archived automatically
-6. **Customer Responses** — view submissions, download filled DOCX documents
-7. **Settings** — view connection health (database, file storage, Anthropic API) and configuration paths
+6. **Export as HTML** — download a self-contained HTML form for any live schema. Send it to customers to fill out offline — no hosting required
+7. **Customer Responses** — view submissions, download filled DOCX documents, or **Import JSON** responses returned from exported HTML forms
+8. **Settings** — view connection health (database, file storage, Anthropic API) and configuration paths
 
-### Customer Workflow
+### Customer Workflow (Online)
 1. Navigate to **Customer Intake** in the sidebar
 2. Select a form (only live schemas appear) and fill out the guided questions
 3. **Save Draft** at any time — a unique draft code is generated (e.g. `A1B2C3D4`) that can be used to resume later
 4. To resume, expand **Resume a saved draft** and enter the draft code
 5. Confirm accuracy and submit
 6. Admin can download the filled document from **Customer Responses**
+
+### Customer Workflow (Offline via HTML Export)
+1. Admin exports a live form as a standalone HTML file and sends it to the customer
+2. Customer opens the HTML file in any browser — no install or internet required
+3. Customer fills out the form, with progressive disclosure and validation built in
+4. Customer clicks **Submit** (or **Save Draft**) to download a JSON file
+5. Customer sends the JSON file back to the admin
+6. Admin imports the JSON file via **Customer Responses > Import JSON response**
 
 ## Project Structure
 
@@ -126,6 +135,7 @@ crew-answer-generator/
 │   ├── storage.py       # Facade over database + file storage
 │   ├── ingestion.py     # DOCX parsing + Claude API extraction
 │   ├── output.py        # Filled DOCX generation
+│   ├── html_export.py   # Self-contained HTML form generator
 │   └── views/
 │       ├── admin.py     # Admin UI (upload, edit, promote, view responses)
 │       ├── customer.py  # Customer-facing guided form
@@ -224,6 +234,16 @@ Customers can save their progress at any time and resume later using a unique dr
 - Saved answers pre-fill all form fields on resume
 - Submitting a draft transitions it to submitted status
 - Draft code is unique per response — no account or login required
+
+### Phase 6 — HTML Export & JSON Import [COMPLETE]
+
+Forms can be distributed to customers as self-contained HTML files — no hosting, no install, no internet required. Customers fill them out in any browser and return a JSON file.
+
+- Export any live schema as a standalone HTML form (single file, all CSS/JS inline)
+- HTML form supports all field types, progressive disclosure, and validation
+- Submit downloads a JSON file; Save Draft downloads a partial JSON file
+- Import JSON responses back into the system via the admin Customer Responses tab
+- Imported responses are linked to the correct schema and version
 
 ### Remaining Work
 
