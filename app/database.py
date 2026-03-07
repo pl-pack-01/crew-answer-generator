@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Generator
 
-from .models import FormResponse, FormSchema, SchemaStatus
+from .models import FormResponse, FormSchema, ResponseStatus, SchemaStatus
 
 _DB_PATH: Path | None = None
 
@@ -31,6 +31,8 @@ def init_db(db_path: str | Path | None = None):
 
     with _get_connection() as conn:
         conn.executescript(_SCHEMA_SQL)
+        # Migrate existing tables if needed
+        _migrate(conn)
 
 
 def get_db_path() -> Path:
@@ -73,6 +75,8 @@ CREATE TABLE IF NOT EXISTS form_responses (
     id TEXT PRIMARY KEY,
     schema_id TEXT NOT NULL,
     schema_version INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft',
+    draft_code TEXT,
     customer_name TEXT,
     answers_json TEXT NOT NULL,
     submitted_at TEXT,
@@ -85,6 +89,15 @@ CREATE INDEX IF NOT EXISTS idx_schemas_status ON form_schemas(status);
 CREATE INDEX IF NOT EXISTS idx_schemas_id_status ON form_schemas(id, status);
 CREATE INDEX IF NOT EXISTS idx_responses_schema ON form_responses(schema_id);
 """
+
+def _migrate(conn: sqlite3.Connection):
+    """Add new columns to existing tables. Safe to run repeatedly."""
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(form_responses)").fetchall()}
+    if "status" not in cols:
+        conn.execute("ALTER TABLE form_responses ADD COLUMN status TEXT NOT NULL DEFAULT 'submitted'")
+    if "draft_code" not in cols:
+        conn.execute("ALTER TABLE form_responses ADD COLUMN draft_code TEXT")
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_responses_draft_code ON form_responses(draft_code)")
 
 
 # --- Schema operations ---
@@ -319,12 +332,15 @@ def save_response(response: FormResponse) -> None:
     with _get_connection() as conn:
         conn.execute(
             """INSERT OR REPLACE INTO form_responses
-               (id, schema_id, schema_version, customer_name, answers_json, submitted_at, signed_off, signed_off_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+               (id, schema_id, schema_version, status, draft_code, customer_name,
+                answers_json, submitted_at, signed_off, signed_off_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 response.id,
                 response.schema_id,
                 response.schema_version,
+                response.status.value,
+                response.draft_code,
                 response.customer_name,
                 json.dumps(response.answers),
                 response.submitted_at.isoformat() if response.submitted_at else None,
@@ -359,11 +375,25 @@ def list_responses(schema_id: str | None = None) -> list[FormResponse]:
         return [_row_to_response(r) for r in rows]
 
 
+def load_draft(draft_code: str) -> FormResponse | None:
+    """Load a draft response by its draft code."""
+    with _get_connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM form_responses WHERE draft_code = ? AND status = 'draft'",
+            (draft_code.strip().upper(),),
+        ).fetchone()
+        if row is None:
+            return None
+        return _row_to_response(row)
+
+
 def _row_to_response(row: sqlite3.Row) -> FormResponse:
     return FormResponse(
         id=row["id"],
         schema_id=row["schema_id"],
         schema_version=row["schema_version"],
+        status=ResponseStatus(row["status"]) if row["status"] else ResponseStatus.SUBMITTED,
+        draft_code=row["draft_code"],
         customer_name=row["customer_name"],
         answers=json.loads(row["answers_json"]),
         submitted_at=datetime.fromisoformat(row["submitted_at"]) if row["submitted_at"] else None,

@@ -109,8 +109,10 @@ The app will be available at `http://localhost:8501`.
 ### Customer Workflow
 1. Navigate to **Customer Intake** in the sidebar
 2. Select a form (only live schemas appear) and fill out the guided questions
-3. Confirm accuracy and submit
-4. Admin can download the filled document from **Customer Responses**
+3. **Save Draft** at any time — a unique draft code is generated (e.g. `A1B2C3D4`) that can be used to resume later
+4. To resume, expand **Resume a saved draft** and enter the draft code
+5. Confirm accuracy and submit
+6. Admin can download the filled document from **Customer Responses**
 
 ## Project Structure
 
@@ -213,9 +215,18 @@ Admin console for full lifecycle management. New uploads create new draft versio
 - Version history visible per schema
 - Responses reference the exact version they were submitted against
 
+### Phase 5 — Draft Save & Resume [COMPLETE]
+
+Customers can save their progress at any time and resume later using a unique draft code. Drafts are stored in the database alongside submitted responses.
+
+- Save Draft button generates a unique 8-character code
+- Resume a draft by entering the code on the Customer Intake page
+- Saved answers pre-fill all form fields on resume
+- Submitting a draft transitions it to submitted status
+- Draft code is unique per response — no account or login required
+
 ### Remaining Work
 
-- Auto-save: partial customer responses preserved across sessions
 - PDF export for read-only confirmation copy
 - Email delivery on submission (SendGrid or internal SMTP)
 - Change diff: see what questions changed between versions

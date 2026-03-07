@@ -4,8 +4,8 @@ from datetime import datetime
 
 import streamlit as st
 
-from app.models import FieldType, FormResponse, SchemaStatus
-from app.storage import list_schemas, load_live_schema, save_response
+from app.models import FieldType, FormResponse, ResponseStatus, SchemaStatus
+from app.storage import list_schemas, load_draft, load_live_schema, save_response
 
 # CSS to highlight missing required fields with a red border
 _MISSING_FIELD_CSS = """
@@ -41,32 +41,75 @@ def render():
     if "missing_field_names" not in st.session_state:
         st.session_state.missing_field_names = []
 
-    schemas = list_schemas(status=SchemaStatus.LIVE)
-    if not schemas:
-        st.info("No forms are currently available. Please check back later.")
-        return
+    # --- Resume a draft ---
+    with st.expander("Resume a saved draft"):
+        draft_code_input = st.text_input(
+            "Enter your draft code",
+            key="draft_code_input",
+            placeholder="e.g. A1B2C3D4",
+        )
+        if st.button("Resume", key="resume_draft"):
+            if draft_code_input.strip():
+                draft = load_draft(draft_code_input)
+                if draft:
+                    st.session_state.active_draft = draft
+                    st.session_state.missing_fields = set()
+                    st.session_state.missing_field_names = []
+                    st.rerun()
+                else:
+                    st.error("Draft not found. Check the code and try again.")
+            else:
+                st.warning("Please enter a draft code.")
 
-    schema_options = {s.name: s.id for s in schemas}
-    selected_name = st.selectbox("Select a form to fill out", list(schema_options.keys()),
-                                 index=None, placeholder="Choose a form...")
+    st.divider()
 
-    if not selected_name:
-        return
+    # --- Check for an active draft in session ---
+    active_draft: FormResponse | None = st.session_state.get("active_draft")
 
-    schema = load_live_schema(schema_options[selected_name])
+    if active_draft:
+        schema = load_live_schema(active_draft.schema_id)
+        if not schema:
+            st.error("The form for this draft is no longer available.")
+            if st.button("Clear draft"):
+                st.session_state.pop("active_draft", None)
+                st.rerun()
+            return
+        st.info(f"Resuming draft **{active_draft.draft_code}** for **{schema.name}**")
+    else:
+        # --- Select a form ---
+        schemas = list_schemas(status=SchemaStatus.LIVE)
+        if not schemas:
+            st.info("No forms are currently available. Please check back later.")
+            return
 
-    if not schema:
-        st.error("Form not found.")
-        return
+        schema_options = {s.name: s.id for s in schemas}
+        selected_name = st.selectbox("Select a form to fill out", list(schema_options.keys()),
+                                     index=None, placeholder="Choose a form...")
+
+        if not selected_name:
+            return
+
+        schema = load_live_schema(schema_options[selected_name])
+        if not schema:
+            st.error("Form not found.")
+            return
 
     if schema.description:
         st.write(schema.description)
 
     st.divider()
 
-    customer_name = st.text_input("Your Name / Organization", key="customer_name")
+    # Pre-fill from draft if resuming
+    draft_answers = active_draft.answers if active_draft else {}
+    draft_customer = active_draft.customer_name if active_draft else ""
 
-    # Render form
+    customer_name = st.text_input(
+        "Your Name / Organization",
+        value=draft_customer or "",
+        key="customer_name",
+    )
+
+    # Render form fields
     answers = {}
     missing = st.session_state.missing_fields
 
@@ -82,7 +125,8 @@ def render():
                     continue
 
             is_missing = question.id in missing
-            answer = _render_question(question, is_missing)
+            default_val = draft_answers.get(question.id)
+            answer = _render_question(question, is_missing, default_val)
             if answer is not None:
                 answers[question.id] = answer
 
@@ -100,7 +144,24 @@ def render():
         key="sign_off",
     )
 
-    if st.button("Submit", type="primary"):
+    # Action buttons
+    col_submit, col_save = st.columns([1, 1])
+
+    with col_submit:
+        submit_clicked = st.button("Submit", type="primary")
+
+    with col_save:
+        save_draft_clicked = st.button("Save Draft")
+
+    # --- Save draft ---
+    if save_draft_clicked:
+        draft = _build_draft(schema, active_draft, customer_name, answers)
+        save_response(draft)
+        st.session_state.active_draft = draft
+        st.success(f"Draft saved! Your draft code is **{draft.draft_code}**. Use it to resume later.")
+
+    # --- Submit ---
+    if submit_clicked:
         # Validate required fields
         new_missing = set()
         missing_names = []
@@ -129,16 +190,14 @@ def render():
         st.session_state.missing_fields = set()
         st.session_state.missing_field_names = []
 
-        response = FormResponse(
-            schema_id=schema.id,
-            schema_version=schema.version,
-            customer_name=customer_name or None,
-            answers=answers,
-            submitted_at=datetime.now(),
-            signed_off=True,
-            signed_off_at=datetime.now(),
-        )
-        save_response(response)
+        draft = _build_draft(schema, active_draft, customer_name, answers)
+        draft.status = ResponseStatus.SUBMITTED
+        draft.submitted_at = datetime.now()
+        draft.signed_off = True
+        draft.signed_off_at = datetime.now()
+        save_response(draft)
+
+        st.session_state.pop("active_draft", None)
         st.success("Thank you! Your responses have been submitted successfully.")
         st.balloons()
 
@@ -147,6 +206,20 @@ def render():
         st.error("**Please complete the following required fields:**")
         for name in st.session_state.missing_field_names:
             st.markdown(f"- :red[{name}]")
+
+
+def _build_draft(schema, existing_draft, customer_name, answers) -> FormResponse:
+    """Create or update a draft FormResponse."""
+    if existing_draft:
+        existing_draft.customer_name = customer_name or None
+        existing_draft.answers = answers
+        return existing_draft
+    return FormResponse(
+        schema_id=schema.id,
+        schema_version=schema.version,
+        customer_name=customer_name or None,
+        answers=answers,
+    )
 
 
 def _evaluate_conditions(conditions, current_answers):
@@ -165,7 +238,7 @@ def _evaluate_conditions(conditions, current_answers):
     return True
 
 
-def _render_question(question, is_missing=False):
+def _render_question(question, is_missing=False, default_value=None):
     label = question.text
     if not question.required:
         label += " *(optional)*"
@@ -176,23 +249,27 @@ def _render_question(question, is_missing=False):
     match question.field_type:
         case FieldType.DROPDOWN:
             options = [""] + question.options
-            val = st.selectbox(label, options, help=help_text, key=question.id)
+            idx = options.index(default_value) if default_value in options else 0
+            val = st.selectbox(label, options, index=idx, help=help_text, key=question.id)
             return val if val else None
 
         case FieldType.MULTI_SELECT:
-            val = st.multiselect(label, question.options, help=help_text, key=question.id)
+            defaults = default_value if isinstance(default_value, list) else []
+            val = st.multiselect(label, question.options, default=defaults, help=help_text, key=question.id)
             return val if val else None
 
         case FieldType.YES_NO:
-            val = st.radio(label, ["", "Yes", "No"], help=help_text, key=question.id, horizontal=True)
+            options = ["", "Yes", "No"]
+            idx = options.index(default_value) if default_value in options else 0
+            val = st.radio(label, options, index=idx, help=help_text, key=question.id, horizontal=True)
             return val if val else None
 
         case FieldType.TEXT:
-            val = st.text_input(label, help=help_text, key=question.id)
+            val = st.text_input(label, value=default_value or "", help=help_text, key=question.id)
             return val if val else None
 
         case FieldType.TEXTAREA:
-            val = st.text_area(label, help=help_text, key=question.id)
+            val = st.text_area(label, value=default_value or "", help=help_text, key=question.id)
             return val if val else None
 
         case FieldType.DATE:
@@ -204,5 +281,5 @@ def _render_question(question, is_missing=False):
             return str(val) if val is not None else None
 
         case _:
-            val = st.text_input(label, help=help_text, key=question.id)
+            val = st.text_input(label, value=default_value or "", help=help_text, key=question.id)
             return val if val else None

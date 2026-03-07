@@ -24,6 +24,11 @@ class SchemaStatus(str, Enum):
     ARCHIVED = "archived"
 
 
+class ResponseStatus(str, Enum):
+    DRAFT = "draft"
+    SUBMITTED = "submitted"
+
+
 class Condition(BaseModel):
     """Show this question only when a previous question has a specific answer."""
     question_id: str
@@ -65,6 +70,8 @@ class FormResponse(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4())[:8])
     schema_id: str
     schema_version: int
+    status: ResponseStatus = ResponseStatus.DRAFT
+    draft_code: str = Field(default_factory=lambda: str(uuid.uuid4())[:8].upper())
     customer_name: Optional[str] = None
     answers: dict[str, str | list[str]] = {}
     submitted_at: Optional[datetime] = None
