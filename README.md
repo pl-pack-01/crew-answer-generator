@@ -30,66 +30,54 @@ Customer answers are merged back into a generated DOCX document, ready for downl
 ## Setup
 
 ### Prerequisites
-- Python 3.11+
-- An Anthropic API key ([get one here](https://console.anthropic.com/))
+- Python 3.11+ ([Windows](https://apps.microsoft.com/detail/9nrwmjp3717k) · [macOS/Linux](https://www.python.org/downloads/)) — make sure "Add to PATH" is checked during install
+- An Anthropic API key ([get one here](https://console.anthropic.com/)) — needed for document parsing, optional for everything else
 
-### Windows
+### Quick Start (Recommended)
 
-1. **Install Python** from the [Microsoft Store](https://apps.microsoft.com/detail/9nrwmjp3717k) or [python.org](https://www.python.org/downloads/). Make sure "Add to PATH" is checked during install.
+The launcher script handles everything automatically — virtual environment, dependencies, and starting the app.
 
-2. **Clone and set up the project:**
-   ```powershell
-   git clone <repo-url>
-   cd crew-answer-generator
-   python -m venv .venv
-   .venv\Scripts\activate
-   pip install -r requirements.txt
-   ```
+**Windows:** Double-click `start.bat` (or run it from a terminal)
 
-3. **Configure your API key:**
-   ```powershell
-   copy .env.example .env
-   ```
-   Open `.env` in a text editor and add your Anthropic API key:
-   ```
-   ANTHROPIC_API_KEY=your-api-key-here
-   ```
+**macOS/Linux:**
+```bash
+chmod +x start.sh   # first time only
+./start.sh
+```
 
-4. **Run the app:**
-   ```powershell
-   streamlit run app/main.py
-   ```
+On first run, the script will:
+1. Create a virtual environment
+2. Install all dependencies
+3. Create a `.env` file from the example (edit it to add your API key)
+4. Launch the app in your browser
 
-### macOS
+### Manual Setup
 
-1. **Install Python** (if not already available):
-   ```bash
-   brew install python@3.11
-   ```
-   Or download from [python.org](https://www.python.org/downloads/).
+If you prefer to set things up manually:
 
-2. **Clone and set up the project:**
-   ```bash
-   git clone <repo-url>
-   cd crew-answer-generator
-   python3 -m venv .venv
-   source .venv/bin/activate
-   pip install -r requirements.txt
-   ```
+**Windows:**
+```powershell
+git clone <repo-url>
+cd crew-answer-generator
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+copy .env.example .env
+# Edit .env and add your Anthropic API key
+streamlit run app/main.py
+```
 
-3. **Configure your API key:**
-   ```bash
-   cp .env.example .env
-   ```
-   Open `.env` and add your Anthropic API key:
-   ```
-   ANTHROPIC_API_KEY=your-api-key-here
-   ```
-
-4. **Run the app:**
-   ```bash
-   streamlit run app/main.py
-   ```
+**macOS/Linux:**
+```bash
+git clone <repo-url>
+cd crew-answer-generator
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+# Edit .env and add your Anthropic API key
+streamlit run app/main.py
+```
 
 ### After Launch
 
@@ -147,6 +135,8 @@ crew-answer-generator/
 ├── .streamlit/
 │   ├── config.toml      # Streamlit UI settings
 │   └── app_config.json  # Local path configuration — gitignored
+├── start.bat            # One-click launcher (Windows)
+├── start.sh             # One-click launcher (macOS/Linux)
 ├── requirements.txt
 ├── .env.example
 └── .gitignore
