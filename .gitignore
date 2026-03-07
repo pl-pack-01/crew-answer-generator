@@ -208,3 +208,6 @@ __marimo__/
 
 # Project data
 data/
+
+# Local app configuration (contains machine-specific paths)
+.streamlit/app_config.json

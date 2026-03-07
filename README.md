@@ -105,7 +105,7 @@ The app will be available at `http://localhost:8501`.
 5. Upload new versions at any time — previous versions are preserved and archived automatically
 6. **Export as HTML** — download a self-contained HTML form for any live schema. Send it to customers to fill out offline — no hosting required
 7. **Customer Responses** — view submissions, download filled DOCX documents, or **Import JSON** responses returned from exported HTML forms
-8. **Settings** — view connection health (database, file storage, Anthropic API), configure screenshot upload limits, and view configuration paths
+8. **Settings** — view connection health (database, file storage, Anthropic API), configure screenshot upload limits, and manage data storage paths (with option to move existing files)
 
 ### Customer Workflow (Online)
 1. Navigate to **Customer Intake** in the sidebar
@@ -137,12 +137,16 @@ crew-answer-generator/
 │   ├── output.py        # Filled DOCX generation
 │   ├── html_export.py   # Self-contained HTML form generator
 │   ├── image_utils.py   # Screenshot processing (resize, compress, base64)
+│   ├── config.py        # Persistent app configuration (data paths)
 │   └── views/
 │       ├── admin.py     # Admin UI (upload, edit, promote, view responses)
 │       ├── customer.py  # Customer-facing guided form
-│       └── settings.py  # Settings, screenshot config & connection health checks
+│       └── settings.py  # Settings, screenshot config, path management & health checks
 ├── tests/               # pytest test suite (83 tests)
-├── data/                # Runtime data (SQLite DB, uploads) — gitignored
+├── data/                # Runtime data (SQLite DB, uploads) — gitignored, path configurable
+├── .streamlit/
+│   ├── config.toml      # Streamlit UI settings
+│   └── app_config.json  # Local path configuration — gitignored
 ├── requirements.txt
 ├── .env.example
 └── .gitignore
@@ -255,6 +259,16 @@ Admins can attach a screenshot to any question as a visual hint for customers. I
 - Customers see a "Screenshot" popover button next to questions that have one
 - HTML export embeds screenshots as base64 data URIs with a clickable dialog
 - Configurable limits in Settings: max file size (default 500KB), max width (default 800px), JPEG quality (default 85)
+
+### Phase 8 — Configurable Storage Paths [COMPLETE]
+
+Data directory, database filename, and upload directory are configurable from the Settings page. Changes can optionally move existing files to the new location.
+
+- Edit data directory, database filename, and upload directory in Settings
+- **Save (don't move files)** — point the app at a new location without touching existing files
+- **Save & move files** — relocate the database and uploads to the new path automatically
+- Configuration persisted in `.streamlit/app_config.json` (gitignored, machine-specific)
+- Defaults remain `data/crew.db` and `data/uploads/` if no config file exists
 
 ### Remaining Work
 

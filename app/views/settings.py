@@ -1,13 +1,14 @@
 """Settings page: connection health checks and configuration status."""
 
 import os
+import shutil
 import sqlite3
 from pathlib import Path
 
 import streamlit as st
 
-from app.database import get_db_path
-from app.storage import DATA_DIR, get_file_storage
+from app import config
+from app.storage import get_file_storage, reset_file_storage
 
 
 def render():
@@ -38,7 +39,7 @@ def _render_health_checks():
 def _check_database():
     st.subheader("Database")
     try:
-        db_path = get_db_path()
+        db_path = config.get_db_path()
         conn = sqlite3.connect(str(db_path))
         conn.row_factory = sqlite3.Row
 
@@ -162,12 +163,95 @@ def _render_screenshot_settings():
 def _render_configuration():
     st.header("Configuration")
 
-    data = {
-        "Data directory": str(DATA_DIR),
-        "Database": str(get_db_path()),
-        "Upload directory": str(DATA_DIR / "uploads"),
-        "Anthropic API key": "Configured" if os.environ.get("ANTHROPIC_API_KEY", "") not in ("", "your-api-key-here") else "Not set",
-    }
+    current_data_dir = config.get("data_dir")
+    current_db_filename = config.get("db_filename")
+    current_upload_dirname = config.get("upload_dirname")
 
-    for label, value in data.items():
-        st.text_input(label, value=value, disabled=True, key=f"cfg_{label}")
+    new_data_dir = st.text_input(
+        "Data directory",
+        value=current_data_dir,
+        key="cfg_data_dir",
+        help="Root directory for all application data (database and uploads).",
+    )
+    new_db_filename = st.text_input(
+        "Database filename",
+        value=current_db_filename,
+        key="cfg_db_filename",
+        help="SQLite database file name within the data directory.",
+    )
+    new_upload_dirname = st.text_input(
+        "Upload directory name",
+        value=current_upload_dirname,
+        key="cfg_upload_dirname",
+        help="Upload subdirectory name within the data directory.",
+    )
+
+    api_status = "Configured" if os.environ.get("ANTHROPIC_API_KEY", "") not in ("", "your-api-key-here") else "Not set"
+    st.text_input("Anthropic API key", value=api_status, disabled=True, key="cfg_api_key")
+
+    # Detect changes
+    changed = (
+        new_data_dir != current_data_dir
+        or new_db_filename != current_db_filename
+        or new_upload_dirname != current_upload_dirname
+    )
+
+    if changed:
+        old_data_dir = Path(current_data_dir)
+        new_data_path = Path(new_data_dir)
+        old_db = old_data_dir / current_db_filename
+        new_db = new_data_path / new_db_filename
+        old_uploads = old_data_dir / current_upload_dirname
+        new_uploads = new_data_path / new_upload_dirname
+
+        st.info("Configuration has changed. Choose how to apply:")
+
+        col_save, col_move, col_cancel = st.columns(3)
+
+        with col_save:
+            if st.button("Save (don't move files)", key="cfg_save_only"):
+                config.save({
+                    "data_dir": new_data_dir,
+                    "db_filename": new_db_filename,
+                    "upload_dirname": new_upload_dirname,
+                })
+                reset_file_storage()
+                st.success("Configuration saved. Restart the app to use the new paths.")
+                st.rerun()
+
+        with col_move:
+            if st.button("Save & move files", key="cfg_save_move", type="primary"):
+                try:
+                    # Create new data directory
+                    new_data_path.mkdir(parents=True, exist_ok=True)
+
+                    # Move database
+                    if old_db.exists() and old_db != new_db:
+                        new_db.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.move(str(old_db), str(new_db))
+
+                    # Move uploads directory
+                    if old_uploads.exists() and old_uploads != new_uploads:
+                        if new_uploads.exists():
+                            # Merge into existing directory
+                            for item in old_uploads.iterdir():
+                                dest = new_uploads / item.name
+                                if not dest.exists():
+                                    shutil.move(str(item), str(dest))
+                        else:
+                            shutil.move(str(old_uploads), str(new_uploads))
+
+                    config.save({
+                        "data_dir": new_data_dir,
+                        "db_filename": new_db_filename,
+                        "upload_dirname": new_upload_dirname,
+                    })
+                    reset_file_storage()
+                    st.success("Files moved and configuration saved. Restart the app to use the new paths.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Failed to move files: {e}")
+
+        with col_cancel:
+            if st.button("Cancel", key="cfg_cancel"):
+                st.rerun()
