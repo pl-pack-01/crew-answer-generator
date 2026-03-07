@@ -127,6 +127,17 @@ def _render_schema_editor(schema):
         st.rerun()
         return True
 
+    # Check for pending screenshot removal
+    pending_ss_clear = st.session_state.pop(f"{key_prefix}_pending_screenshot_clear", None)
+    if pending_ss_clear:
+        for sec in schema.sections:
+            for q in sec.questions:
+                if q.id == pending_ss_clear:
+                    q.screenshot_b64 = None
+        save_schema(schema)
+        st.rerun()
+        return True
+
     for section in schema.sections:
         st.divider()
         sec_key = f"{key_prefix}_s{section.id}"
@@ -261,7 +272,11 @@ def _render_question_editor(q, q_key, edited_questions, key_prefix="") -> bool:
                 st.image(q.screenshot_b64, caption="Current screenshot", width=200)
             with col_clear:
                 if st.button("Remove screenshot", key=f"{q_key}_remove_screenshot"):
+                    q.screenshot_b64 = None
                     new_screenshot = None
+                    # Find and save the schema immediately
+                    st.session_state[f"{key_prefix}_pending_screenshot_clear"] = q.id
+                    st.rerun()
         screenshot_file = st.file_uploader(
             "Upload screenshot",
             type=["png", "jpg", "jpeg", "gif"],
