@@ -15,6 +15,8 @@ def render():
 
     _render_health_checks()
     st.divider()
+    _render_screenshot_settings()
+    st.divider()
     _render_configuration()
 
 
@@ -113,6 +115,48 @@ def _check_anthropic_api():
     else:
         if api_key and api_key != "your-api-key-here":
             st.success("Key configured")
+
+
+def _render_screenshot_settings():
+    from app.image_utils import DEFAULT_JPEG_QUALITY, DEFAULT_MAX_FILE_SIZE_KB, DEFAULT_MAX_WIDTH_PX
+
+    st.header("Screenshot Settings")
+    st.caption("Configure limits for question screenshot uploads. Changes apply immediately to new uploads.")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.number_input(
+            "Max file size (KB)",
+            min_value=50,
+            max_value=5000,
+            value=st.session_state.get("screenshot_max_kb", DEFAULT_MAX_FILE_SIZE_KB),
+            step=50,
+            key="screenshot_max_kb",
+            help="Maximum size per screenshot after compression.",
+        )
+
+    with col2:
+        st.number_input(
+            "Max width (px)",
+            min_value=200,
+            max_value=3000,
+            value=st.session_state.get("screenshot_max_width", DEFAULT_MAX_WIDTH_PX),
+            step=100,
+            key="screenshot_max_width",
+            help="Images wider than this are resized down.",
+        )
+
+    with col3:
+        st.number_input(
+            "JPEG quality",
+            min_value=20,
+            max_value=100,
+            value=st.session_state.get("screenshot_jpeg_quality", DEFAULT_JPEG_QUALITY),
+            step=5,
+            key="screenshot_jpeg_quality",
+            help="Starting quality for JPEG compression (auto-reduced if needed).",
+        )
 
 
 def _render_configuration():

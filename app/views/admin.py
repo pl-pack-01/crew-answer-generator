@@ -6,6 +6,7 @@ import uuid
 import streamlit as st
 
 from app.html_export import generate_html_form
+from app.image_utils import process_screenshot
 from app.ingestion import ingest_document
 from app.models import FieldType, FormResponse, Question, ResponseStatus, SchemaStatus, Section
 from app.output import generate_filled_docx
@@ -205,6 +206,26 @@ def _render_question_editor(q, q_key, edited_questions):
         # Help text
         new_help = st.text_input("Help Text", value=q.help_text or "", key=f"{q_key}_help")
 
+        # Screenshot
+        new_screenshot = q.screenshot_b64
+        if q.screenshot_b64:
+            col_img, col_clear = st.columns([4, 1])
+            with col_img:
+                st.image(q.screenshot_b64, caption="Current screenshot", width=200)
+            with col_clear:
+                if st.button("Remove screenshot", key=f"{q_key}_remove_screenshot"):
+                    new_screenshot = None
+        screenshot_file = st.file_uploader(
+            "Upload screenshot",
+            type=["png", "jpg", "jpeg", "gif"],
+            key=f"{q_key}_screenshot",
+        )
+        if screenshot_file:
+            try:
+                new_screenshot = process_screenshot(screenshot_file.getvalue())
+            except ValueError as e:
+                st.error(str(e))
+
         # Remove button
         col_spacer, col_remove = st.columns([5, 1])
         with col_remove:
@@ -218,6 +239,7 @@ def _render_question_editor(q, q_key, edited_questions):
             options=new_options,
             required=new_required,
             help_text=new_help or None,
+            screenshot_b64=new_screenshot,
             section=q.section,
             conditions=q.conditions,
         ))

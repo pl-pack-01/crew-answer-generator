@@ -37,10 +37,20 @@ def generate_html_form(schema: FormSchema) -> str:
 
             input_html = _render_input(q)
 
+            screenshot_html = ""
+            if q.screenshot_b64:
+                screenshot_html = (
+                    f'<button type="button" class="screenshot-btn" onclick="this.nextElementSibling.showModal()">Screenshot</button>'
+                    f'<dialog class="screenshot-dialog" onclick="if(event.target===this)this.close()">'
+                    f'<img src="{q.screenshot_b64}" alt="Screenshot">'
+                    f'<button type="button" onclick="this.parentElement.close()">Close</button>'
+                    f'</dialog>'
+                )
+
             cond_div = f' data-conditions="{conditions_attr}"' if conditions_attr else ""
             questions_html.append(
                 f'<div class="question" data-qid="{html.escape(q.id)}"{cond_div}>\n'
-                f'  <label>{html.escape(q.text)}{required_label}</label>\n'
+                f'  <label>{html.escape(q.text)}{required_label}</label>{screenshot_html}\n'
                 f'  {help_html}\n'
                 f'  {input_html}\n'
                 f'  <div class="error-msg" style="display:none;">This field is required.</div>\n'
@@ -126,7 +136,13 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
   .section-desc {{ color: #666; margin-bottom: 12px; font-size: 0.9em; }}
   .question {{ margin-bottom: 16px; }}
   .question.hidden {{ display: none; }}
-  .question label {{ display: block; font-weight: 500; margin-bottom: 4px; }}
+  .question label {{ display: inline; font-weight: 500; margin-bottom: 4px; }}
+  .screenshot-btn {{ background: #e8f0fe; color: #4a90d9; border: 1px solid #4a90d9; border-radius: 4px; padding: 1px 8px; font-size: 0.8em; cursor: pointer; margin-left: 8px; vertical-align: middle; }}
+  .screenshot-btn:hover {{ background: #4a90d9; color: #fff; }}
+  .screenshot-dialog {{ border: none; border-radius: 8px; padding: 16px; max-width: 90vw; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }}
+  .screenshot-dialog::backdrop {{ background: rgba(0,0,0,0.5); }}
+  .screenshot-dialog img {{ max-width: 100%; border-radius: 4px; }}
+  .screenshot-dialog button {{ display: block; margin: 12px auto 0; padding: 6px 20px; border: 1px solid #ccc; border-radius: 4px; background: #f0f0f0; cursor: pointer; }}
   .required {{ color: #e74c3c; }}
   .optional {{ color: #999; font-weight: normal; font-size: 0.85em; }}
   .help-text {{ color: #888; font-size: 0.85em; margin-bottom: 4px; }}

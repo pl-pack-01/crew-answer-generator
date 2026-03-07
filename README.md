@@ -105,7 +105,7 @@ The app will be available at `http://localhost:8501`.
 5. Upload new versions at any time — previous versions are preserved and archived automatically
 6. **Export as HTML** — download a self-contained HTML form for any live schema. Send it to customers to fill out offline — no hosting required
 7. **Customer Responses** — view submissions, download filled DOCX documents, or **Import JSON** responses returned from exported HTML forms
-8. **Settings** — view connection health (database, file storage, Anthropic API) and configuration paths
+8. **Settings** — view connection health (database, file storage, Anthropic API), configure screenshot upload limits, and view configuration paths
 
 ### Customer Workflow (Online)
 1. Navigate to **Customer Intake** in the sidebar
@@ -136,10 +136,11 @@ crew-answer-generator/
 │   ├── ingestion.py     # DOCX parsing + Claude API extraction
 │   ├── output.py        # Filled DOCX generation
 │   ├── html_export.py   # Self-contained HTML form generator
+│   ├── image_utils.py   # Screenshot processing (resize, compress, base64)
 │   └── views/
 │       ├── admin.py     # Admin UI (upload, edit, promote, view responses)
 │       ├── customer.py  # Customer-facing guided form
-│       └── settings.py  # Settings & connection health checks
+│       └── settings.py  # Settings, screenshot config & connection health checks
 ├── tests/               # pytest test suite (83 tests)
 ├── data/                # Runtime data (SQLite DB, uploads) — gitignored
 ├── requirements.txt
@@ -244,6 +245,16 @@ Forms can be distributed to customers as self-contained HTML files — no hostin
 - Submit downloads a JSON file; Save Draft downloads a partial JSON file
 - Import JSON responses back into the system via the admin Customer Responses tab
 - Imported responses are linked to the correct schema and version
+
+### Phase 7 — Question Screenshots [COMPLETE]
+
+Admins can attach a screenshot to any question as a visual hint for customers. Images are stored as base64 inside the schema JSON — no extra files or tables.
+
+- Upload PNG/JPG/GIF screenshots per question in the admin schema editor
+- Images auto-resized and compressed to stay within configurable limits
+- Customers see a "Screenshot" popover button next to questions that have one
+- HTML export embeds screenshots as base64 data URIs with a clickable dialog
+- Configurable limits in Settings: max file size (default 500KB), max width (default 800px), JPEG quality (default 85)
 
 ### Remaining Work
 

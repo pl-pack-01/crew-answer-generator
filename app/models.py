@@ -44,6 +44,7 @@ class Question(BaseModel):
     required: bool = True
     default: Optional[str] = None
     help_text: Optional[str] = None
+    screenshot_b64: Optional[str] = None
     section: Optional[str] = None
     conditions: list[Condition] = []
 

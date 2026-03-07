@@ -246,6 +246,11 @@ def _render_question(question, is_missing=False, default_value=None):
         label = f":red[**{question.text}** *(required)*]"
     help_text = question.help_text
 
+    # Show screenshot popover if available
+    if question.screenshot_b64:
+        with st.popover("Screenshot", use_container_width=False):
+            st.image(question.screenshot_b64, use_container_width=True)
+
     match question.field_type:
         case FieldType.DROPDOWN:
             options = [""] + question.options
