@@ -306,6 +306,23 @@ def fork_schema(schema_id: str, source_version: int, new_name: str) -> FormSchem
         return schema
 
 
+def delete_schema(schema_id: str, version: int) -> None:
+    """Delete a draft schema version. Raises ValueError if the schema is not a draft."""
+    with _get_connection() as conn:
+        row = conn.execute(
+            "SELECT status FROM form_schemas WHERE id = ? AND version = ?",
+            (schema_id, version),
+        ).fetchone()
+        if row is None:
+            raise ValueError(f"Schema {schema_id} v{version} not found")
+        if row["status"] != "draft":
+            raise ValueError("Only draft schemas can be deleted")
+        conn.execute(
+            "DELETE FROM form_schemas WHERE id = ? AND version = ?",
+            (schema_id, version),
+        )
+
+
 def archive_schema(schema_id: str, version: int) -> None:
     """Archive a schema version."""
     with _get_connection() as conn:

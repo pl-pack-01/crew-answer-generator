@@ -13,6 +13,7 @@ from app.output import generate_filled_docx
 from app.storage import (
     archive_schema,
     create_new_version,
+    delete_schema,
     fork_schema,
     list_responses,
     list_schema_versions,
@@ -109,7 +110,7 @@ def _render_schema_editor(schema):
     new_desc = st.text_area("Description", value=schema.description or "", key=f"{key_prefix}_desc")
 
     edited_sections = []
-    removal_happened = False
+    needs_autosave = False
 
     for si, section in enumerate(schema.sections):
         st.divider()
@@ -141,7 +142,7 @@ def _render_schema_editor(schema):
                     st.rerun()
 
         if remove_this_section:
-            removal_happened = True
+            needs_autosave = True
             continue
 
         sec_desc = st.text_input(
@@ -154,16 +155,18 @@ def _render_schema_editor(schema):
         for qi, q in enumerate(section.questions):
             q_key = f"{sec_key}_q{qi}"
             if _render_question_editor(q, q_key, edited_questions):
-                removal_happened = True
+                needs_autosave = True
 
         # Add question button
-        if st.button("+ Add Question", key=f"{sec_key}_add_q"):
+        add_question = st.button("+ Add Question", key=f"{sec_key}_add_q")
+        if add_question:
             new_q = Question(
                 id=str(uuid.uuid4())[:8],
                 text="New Question",
                 field_type=FieldType.TEXT,
             )
             edited_questions.append(new_q)
+            needs_autosave = True  # reuse flag to trigger auto-save
 
         edited_sections.append(Section(
             id=section.id,
@@ -180,9 +183,10 @@ def _render_schema_editor(schema):
             title="New Section",
             questions=[],
         ))
+        needs_autosave = True  # reuse flag to trigger auto-save
 
-    # Auto-save when a section or question was removed
-    if removal_happened:
+    # Auto-save when a section or question was added/removed
+    if needs_autosave:
         schema.name = new_name
         schema.description = new_desc or None
         schema.sections = edited_sections
@@ -343,6 +347,24 @@ def _render_schemas():
                         promote_schema(schema.id, schema.version)
                         st.success(f"v{schema.version} is now **live**!")
                         st.rerun()
+
+                    confirm_del_key = f"confirm_delete_{schema.id}_v{schema.version}"
+                    if st.session_state.get(confirm_del_key):
+                        st.warning("Delete this draft?")
+                        col_yes, col_no = st.columns(2)
+                        with col_yes:
+                            if st.button("Yes, delete", key=f"del_yes_{schema.id}_v{schema.version}", type="primary"):
+                                st.session_state.pop(confirm_del_key, None)
+                                delete_schema(schema.id, schema.version)
+                                st.rerun()
+                        with col_no:
+                            if st.button("Cancel", key=f"del_no_{schema.id}_v{schema.version}"):
+                                st.session_state.pop(confirm_del_key, None)
+                                st.rerun()
+                    else:
+                        if st.button("Delete Draft", key=f"delete_{schema.id}_v{schema.version}"):
+                            st.session_state[confirm_del_key] = True
+                            st.rerun()
 
                 if schema.status == SchemaStatus.LIVE:
                     if st.button("Archive", key=f"archive_{schema.id}_v{schema.version}"):
