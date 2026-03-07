@@ -109,6 +109,7 @@ def _render_schema_editor(schema):
     new_desc = st.text_area("Description", value=schema.description or "", key=f"{key_prefix}_desc")
 
     edited_sections = []
+    removal_happened = False
 
     for si, section in enumerate(schema.sections):
         st.divider()
@@ -122,6 +123,7 @@ def _render_schema_editor(schema):
             remove_section = st.button("Remove Section", key=f"{sec_key}_remove")
 
         if remove_section:
+            removal_happened = True
             continue
 
         sec_desc = st.text_input(
@@ -133,7 +135,8 @@ def _render_schema_editor(schema):
         edited_questions = []
         for qi, q in enumerate(section.questions):
             q_key = f"{sec_key}_q{qi}"
-            _render_question_editor(q, q_key, edited_questions)
+            if _render_question_editor(q, q_key, edited_questions):
+                removal_happened = True
 
         # Add question button
         if st.button("+ Add Question", key=f"{sec_key}_add_q"):
@@ -160,6 +163,15 @@ def _render_schema_editor(schema):
             questions=[],
         ))
 
+    # Auto-save when a section or question was removed
+    if removal_happened:
+        schema.name = new_name
+        schema.description = new_desc or None
+        schema.sections = edited_sections
+        save_schema(schema)
+        st.rerun()
+        return True
+
     # Save button
     st.divider()
     if st.button("Save Changes", key=f"{key_prefix}_save", type="primary"):
@@ -174,8 +186,11 @@ def _render_schema_editor(schema):
     return False
 
 
-def _render_question_editor(q, q_key, edited_questions):
-    """Render editor for a single question. Appends to edited_questions if not removed."""
+def _render_question_editor(q, q_key, edited_questions) -> bool:
+    """Render editor for a single question. Appends to edited_questions if not removed.
+
+    Returns True if the question was removed.
+    """
     with st.container(border=True):
         col1, col2, col3 = st.columns([4, 2, 1])
 
@@ -230,7 +245,7 @@ def _render_question_editor(q, q_key, edited_questions):
         col_spacer, col_remove = st.columns([5, 1])
         with col_remove:
             if st.button("Remove", key=f"{q_key}_remove"):
-                return  # skip appending = question removed
+                return True  # signal removal
 
         edited_questions.append(Question(
             id=q.id,
@@ -243,6 +258,7 @@ def _render_question_editor(q, q_key, edited_questions):
             section=q.section,
             conditions=q.conditions,
         ))
+        return False
 
 
 # --- Schemas list ---
