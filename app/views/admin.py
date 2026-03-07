@@ -122,20 +122,22 @@ def _render_schema_editor(schema):
             sec_title = st.text_input("Section Title", value=section.title, key=f"{sec_key}_title")
         with col_remove:
             st.write("")  # spacer
-            if st.session_state.get(confirm_sec_key):
-                st.caption("Remove this section?")
-                col_yes, col_no = st.columns(2)
-                with col_yes:
-                    if st.button("Yes", key=f"{sec_key}_yes", type="primary"):
-                        st.session_state.pop(confirm_sec_key, None)
-                        remove_this_section = True
-                with col_no:
-                    if st.button("No", key=f"{sec_key}_no"):
-                        st.session_state.pop(confirm_sec_key, None)
-                        st.rerun()
-            else:
+            if not st.session_state.get(confirm_sec_key):
                 if st.button("Remove Section", key=f"{sec_key}_remove"):
                     st.session_state[confirm_sec_key] = True
+                    st.rerun()
+
+        if st.session_state.get(confirm_sec_key):
+            col_msg, col_yes, col_no = st.columns([3, 1, 1])
+            with col_msg:
+                st.warning("Remove this section?")
+            with col_yes:
+                if st.button("Yes, remove", key=f"{sec_key}_yes", type="primary"):
+                    st.session_state.pop(confirm_sec_key, None)
+                    remove_this_section = True
+            with col_no:
+                if st.button("Cancel", key=f"{sec_key}_no"):
+                    st.session_state.pop(confirm_sec_key, None)
                     st.rerun()
 
         if remove_this_section:
@@ -261,20 +263,22 @@ def _render_question_editor(q, q_key, edited_questions) -> bool:
         confirm_q_key = f"{q_key}_confirm_remove"
         col_spacer, col_remove = st.columns([5, 1])
         with col_remove:
-            if st.session_state.get(confirm_q_key):
-                st.caption("Remove?")
-                col_yes, col_no = st.columns(2)
-                with col_yes:
-                    if st.button("Yes", key=f"{q_key}_yes", type="primary"):
-                        st.session_state.pop(confirm_q_key, None)
-                        return True  # signal removal
-                with col_no:
-                    if st.button("No", key=f"{q_key}_no"):
-                        st.session_state.pop(confirm_q_key, None)
-                        st.rerun()
-            else:
+            if not st.session_state.get(confirm_q_key):
                 if st.button("Remove", key=f"{q_key}_remove"):
                     st.session_state[confirm_q_key] = True
+                    st.rerun()
+
+        if st.session_state.get(confirm_q_key):
+            col_msg, col_yes, col_no = st.columns([3, 1, 1])
+            with col_msg:
+                st.warning("Remove this question?")
+            with col_yes:
+                if st.button("Yes, remove", key=f"{q_key}_yes", type="primary"):
+                    st.session_state.pop(confirm_q_key, None)
+                    return True  # signal removal
+            with col_no:
+                if st.button("Cancel", key=f"{q_key}_no"):
+                    st.session_state.pop(confirm_q_key, None)
                     st.rerun()
 
         edited_questions.append(Question(
