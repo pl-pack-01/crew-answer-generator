@@ -112,11 +112,25 @@ def _render_schema_editor(schema):
     edited_sections = []
     needs_autosave = False
 
-    for si, section in enumerate(schema.sections):
+    # Check for pending section/question removals (saved before rerun)
+    pending_remove = st.session_state.pop(f"{key_prefix}_pending_remove", None)
+    if pending_remove:
+        rtype, rid = pending_remove
+        if rtype == "section":
+            schema.sections = [s for s in schema.sections if s.id != rid]
+        elif rtype == "question":
+            for sec in schema.sections:
+                sec.questions = [q for q in sec.questions if q.id != rid]
+        schema.name = new_name
+        schema.description = new_desc or None
+        save_schema(schema)
+        st.rerun()
+        return True
+
+    for section in schema.sections:
         st.divider()
-        sec_key = f"{key_prefix}_s{si}"
+        sec_key = f"{key_prefix}_s{section.id}"
         confirm_sec_key = f"{sec_key}_confirm_remove"
-        remove_this_section = False
 
         col_title, col_remove = st.columns([5, 1])
         with col_title:
@@ -135,15 +149,12 @@ def _render_schema_editor(schema):
             with col_yes:
                 if st.button("Yes, remove", key=f"{sec_key}_yes", type="primary"):
                     st.session_state.pop(confirm_sec_key, None)
-                    remove_this_section = True
+                    st.session_state[f"{key_prefix}_pending_remove"] = ("section", section.id)
+                    st.rerun()
             with col_no:
                 if st.button("Cancel", key=f"{sec_key}_no"):
                     st.session_state.pop(confirm_sec_key, None)
                     st.rerun()
-
-        if remove_this_section:
-            needs_autosave = True
-            continue
 
         sec_desc = st.text_input(
             "Section Description",
@@ -152,21 +163,20 @@ def _render_schema_editor(schema):
         )
 
         edited_questions = []
-        for qi, q in enumerate(section.questions):
-            q_key = f"{sec_key}_q{qi}"
-            if _render_question_editor(q, q_key, edited_questions):
-                needs_autosave = True
+        for q in section.questions:
+            q_key = f"{sec_key}_q{q.id}"
+            if _render_question_editor(q, q_key, edited_questions, key_prefix):
+                pass  # removal handled via pending_remove + rerun
 
         # Add question button
-        add_question = st.button("+ Add Question", key=f"{sec_key}_add_q")
-        if add_question:
+        if st.button("+ Add Question", key=f"{sec_key}_add_q"):
             new_q = Question(
                 id=str(uuid.uuid4())[:8],
                 text="New Question",
                 field_type=FieldType.TEXT,
             )
             edited_questions.append(new_q)
-            needs_autosave = True  # reuse flag to trigger auto-save
+            needs_autosave = True
 
         edited_sections.append(Section(
             id=section.id,
@@ -208,7 +218,7 @@ def _render_schema_editor(schema):
     return False
 
 
-def _render_question_editor(q, q_key, edited_questions) -> bool:
+def _render_question_editor(q, q_key, edited_questions, key_prefix="") -> bool:
     """Render editor for a single question. Appends to edited_questions if not removed.
 
     Returns True if the question was removed.
@@ -279,7 +289,8 @@ def _render_question_editor(q, q_key, edited_questions) -> bool:
             with col_yes:
                 if st.button("Yes, remove", key=f"{q_key}_yes", type="primary"):
                     st.session_state.pop(confirm_q_key, None)
-                    return True  # signal removal
+                    st.session_state[f"{key_prefix}_pending_remove"] = ("question", q.id)
+                    st.rerun()
             with col_no:
                 if st.button("Cancel", key=f"{q_key}_no"):
                     st.session_state.pop(confirm_q_key, None)
