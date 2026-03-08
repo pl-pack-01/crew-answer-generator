@@ -92,7 +92,7 @@ The app will be available at `http://localhost:8501`.
 4. **Create New Version** — clone a live or archived schema into a new editable draft. Keep the same name to create a new version, or change the name to fork it into an independent form (still linked to the original source document)
 5. Upload new versions at any time — previous versions are preserved and archived automatically
 6. **Export as HTML** — download a self-contained HTML form for any live schema. Send it to customers to fill out offline — no hosting required
-7. **Customer Responses** — view submissions, download filled DOCX documents, or **Import JSON** responses returned from exported HTML forms
+7. **Customer Responses** — view active and archived submissions, download filled DOCX documents, track output generation status, archive completed responses, or **Import JSON** responses returned from exported HTML forms
 8. **Settings** — view connection health (database, file storage, Anthropic API), configure screenshot upload limits, and manage data storage paths (with option to move existing files)
 
 ### Customer Workflow (Online)
@@ -259,6 +259,16 @@ Data directory, database filename, and upload directory are configurable from th
 - **Save & move files** — relocate the database and uploads to the new path automatically
 - Configuration persisted in `.streamlit/app_config.json` (gitignored, machine-specific)
 - Defaults remain `data/crew.db` and `data/uploads/` if no config file exists
+
+### Phase 9 — Response Archival & Output Tracking [COMPLETE]
+
+Customer responses can be archived once completed and tracked for whether the output document has been generated.
+
+- **Active / Archived tabs** in Customer Responses — separate views for current and completed work
+- **Archive** a submitted response to move it out of the active list
+- **Unarchive** from the Archived tab to restore a response to active
+- **Output tracking** — the system records when a filled DOCX document is first downloaded, shown with a document icon in the response list
+- Response status badges: Draft, Pending sign-off, Signed off, Archived
 
 ### Remaining Work
 

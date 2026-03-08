@@ -514,42 +514,93 @@ def _render_responses():
     selected_name = st.selectbox("Filter by form", ["All"] + list(schema_options.keys()))
     schema_id = schema_options.get(selected_name) if selected_name != "All" else None
 
-    responses = list_responses(schema_id)
+    tab_active, tab_archived = st.tabs(["Active", "Archived"])
 
-    if not responses:
-        st.info("No responses yet.")
-        return
+    with tab_active:
+        responses = list_responses(schema_id, exclude_status=ResponseStatus.ARCHIVED)
+        if not responses:
+            st.info("No active responses.")
+        else:
+            for resp in responses:
+                _render_response_card(resp, archived=False)
 
-    for resp in responses:
-        schema = load_schema(resp.schema_id, resp.schema_version)
-        form_name = schema.name if schema else resp.schema_id
-        status = "Signed off" if resp.signed_off else "Pending sign-off"
-        label = f"{resp.customer_name or 'Unknown'} - {form_name} v{resp.schema_version} ({status})"
+    with tab_archived:
+        archived = list_responses(schema_id, status=ResponseStatus.ARCHIVED)
+        if not archived:
+            st.info("No archived responses.")
+        else:
+            for resp in archived:
+                _render_response_card(resp, archived=True)
 
-        with st.expander(label):
+
+def _response_status_badge(resp: FormResponse) -> str:
+    if resp.status == ResponseStatus.ARCHIVED:
+        return "⚪ Archived"
+    if resp.signed_off:
+        return "🟢 Signed off"
+    if resp.status == ResponseStatus.SUBMITTED:
+        return "🟡 Pending sign-off"
+    return "⚪ Draft"
+
+
+def _render_response_card(resp: FormResponse, archived: bool = False):
+    from datetime import datetime
+
+    schema = load_schema(resp.schema_id, resp.schema_version)
+    form_name = schema.name if schema else resp.schema_id
+    badge = _response_status_badge(resp)
+    output_icon = "📄" if resp.output_generated else "—"
+    label = f"{resp.customer_name or 'Unknown'} — {form_name} v{resp.schema_version} — {badge} — Output: {output_icon}"
+
+    with st.expander(label):
+        col_info, col_actions = st.columns([3, 1])
+
+        with col_info:
             st.write(f"**Response ID:** `{resp.id}`")
             st.write(f"**Submitted:** {resp.submitted_at.strftime('%Y-%m-%d %H:%M') if resp.submitted_at else 'N/A'}")
             st.write(f"**Schema version:** v{resp.schema_version}")
+            if resp.output_generated:
+                st.write(f"**Output generated:** {resp.output_generated_at.strftime('%Y-%m-%d %H:%M') if resp.output_generated_at else 'Yes'}")
 
-            if schema:
-                st.markdown("### Answers")
-                for section in schema.sections:
-                    st.markdown(f"**{section.title}**")
-                    for q in section.questions:
-                        answer = resp.answers.get(q.id, "(no answer)")
-                        if isinstance(answer, list):
-                            answer = ", ".join(answer)
-                        st.write(f"- {q.text}: **{answer}**")
+        with col_actions:
+            if archived:
+                if st.button("Unarchive", key=f"unarchive_{resp.id}"):
+                    resp.status = ResponseStatus.SUBMITTED
+                    save_response(resp)
+                    st.rerun()
+            else:
+                if resp.status == ResponseStatus.SUBMITTED:
+                    if st.button("Archive", key=f"archive_resp_{resp.id}"):
+                        resp.status = ResponseStatus.ARCHIVED
+                        save_response(resp)
+                        st.rerun()
 
-                if st.button("Download Filled Document", key=f"dl_{resp.id}"):
-                    import tempfile
-                    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
-                        generate_filled_docx(schema, resp, tmp.name)
-                        with open(tmp.name, "rb") as f:
-                            st.download_button(
-                                "Click to download",
-                                f.read(),
-                                file_name=f"{form_name}_{resp.customer_name or 'response'}.docx",
-                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                key=f"dlbtn_{resp.id}",
-                            )
+        if schema:
+            st.markdown("### Answers")
+            for section in schema.sections:
+                st.markdown(f"**{section.title}**")
+                for q in section.questions:
+                    answer = resp.answers.get(q.id, "(no answer)")
+                    if isinstance(answer, list):
+                        answer = ", ".join(answer)
+                    st.write(f"- {q.text}: **{answer}**")
+
+            if st.button("Download Filled Document", key=f"dl_{resp.id}"):
+                import tempfile
+                with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
+                    generate_filled_docx(schema, resp, tmp.name)
+
+                    # Mark output as generated
+                    if not resp.output_generated:
+                        resp.output_generated = True
+                        resp.output_generated_at = datetime.now()
+                        save_response(resp)
+
+                    with open(tmp.name, "rb") as f:
+                        st.download_button(
+                            "Click to download",
+                            f.read(),
+                            file_name=f"{form_name}_{resp.customer_name or 'response'}.docx",
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            key=f"dlbtn_{resp.id}",
+                        )

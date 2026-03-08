@@ -82,6 +82,8 @@ CREATE TABLE IF NOT EXISTS form_responses (
     submitted_at TEXT,
     signed_off INTEGER NOT NULL DEFAULT 0,
     signed_off_at TEXT,
+    output_generated INTEGER NOT NULL DEFAULT 0,
+    output_generated_at TEXT,
     FOREIGN KEY (schema_id, schema_version) REFERENCES form_schemas(id, version)
 );
 
@@ -98,6 +100,10 @@ def _migrate(conn: sqlite3.Connection):
     if "draft_code" not in cols:
         conn.execute("ALTER TABLE form_responses ADD COLUMN draft_code TEXT")
     conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_responses_draft_code ON form_responses(draft_code)")
+    if "output_generated" not in cols:
+        conn.execute("ALTER TABLE form_responses ADD COLUMN output_generated INTEGER NOT NULL DEFAULT 0")
+    if "output_generated_at" not in cols:
+        conn.execute("ALTER TABLE form_responses ADD COLUMN output_generated_at TEXT")
 
 
 # --- Schema operations ---
@@ -350,8 +356,9 @@ def save_response(response: FormResponse) -> None:
         conn.execute(
             """INSERT OR REPLACE INTO form_responses
                (id, schema_id, schema_version, status, draft_code, customer_name,
-                answers_json, submitted_at, signed_off, signed_off_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                answers_json, submitted_at, signed_off, signed_off_at,
+                output_generated, output_generated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 response.id,
                 response.schema_id,
@@ -363,6 +370,8 @@ def save_response(response: FormResponse) -> None:
                 response.submitted_at.isoformat() if response.submitted_at else None,
                 1 if response.signed_off else 0,
                 response.signed_off_at.isoformat() if response.signed_off_at else None,
+                1 if response.output_generated else 0,
+                response.output_generated_at.isoformat() if response.output_generated_at else None,
             ),
         )
 
@@ -378,17 +387,28 @@ def load_response(response_id: str) -> FormResponse | None:
         return _row_to_response(row)
 
 
-def list_responses(schema_id: str | None = None) -> list[FormResponse]:
+def list_responses(
+    schema_id: str | None = None,
+    status: ResponseStatus | None = None,
+    exclude_status: ResponseStatus | None = None,
+) -> list[FormResponse]:
     with _get_connection() as conn:
+        clauses = []
+        params: list = []
         if schema_id:
-            rows = conn.execute(
-                "SELECT * FROM form_responses WHERE schema_id = ? ORDER BY submitted_at DESC",
-                (schema_id,),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT * FROM form_responses ORDER BY submitted_at DESC",
-            ).fetchall()
+            clauses.append("schema_id = ?")
+            params.append(schema_id)
+        if status:
+            clauses.append("status = ?")
+            params.append(status.value)
+        if exclude_status:
+            clauses.append("status != ?")
+            params.append(exclude_status.value)
+        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+        rows = conn.execute(
+            f"SELECT * FROM form_responses{where} ORDER BY submitted_at DESC",
+            params,
+        ).fetchall()
         return [_row_to_response(r) for r in rows]
 
 
@@ -405,6 +425,7 @@ def load_draft(draft_code: str) -> FormResponse | None:
 
 
 def _row_to_response(row: sqlite3.Row) -> FormResponse:
+    col_names = set(row.keys())
     return FormResponse(
         id=row["id"],
         schema_id=row["schema_id"],
@@ -416,4 +437,6 @@ def _row_to_response(row: sqlite3.Row) -> FormResponse:
         submitted_at=datetime.fromisoformat(row["submitted_at"]) if row["submitted_at"] else None,
         signed_off=bool(row["signed_off"]),
         signed_off_at=datetime.fromisoformat(row["signed_off_at"]) if row["signed_off_at"] else None,
+        output_generated=bool(row["output_generated"]) if "output_generated" in col_names else False,
+        output_generated_at=datetime.fromisoformat(row["output_generated_at"]) if "output_generated" in col_names and row["output_generated_at"] else None,
     )

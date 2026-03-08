@@ -27,6 +27,7 @@ class SchemaStatus(str, Enum):
 class ResponseStatus(str, Enum):
     DRAFT = "draft"
     SUBMITTED = "submitted"
+    ARCHIVED = "archived"
 
 
 class Condition(BaseModel):
@@ -78,3 +79,5 @@ class FormResponse(BaseModel):
     submitted_at: Optional[datetime] = None
     signed_off: bool = False
     signed_off_at: Optional[datetime] = None
+    output_generated: bool = False
+    output_generated_at: Optional[datetime] = None
