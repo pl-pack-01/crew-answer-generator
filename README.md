@@ -269,6 +269,26 @@ Customer responses can be archived once completed and tracked for whether the ou
 - **Output tracking** — the system records when a filled DOCX document is first downloaded, shown with a document icon in the response list
 - Response status badges: Draft, Pending sign-off, Signed off, Archived
 
+### Phase 10 — Response Timeline Tracking [COMPLETE]
+
+Each customer response tracks three timestamps for feedback loop measurement, visible in the admin Customer Responses view.
+
+- **Opened** — when the customer first selects/opens the form
+- **First saved** — when they first save a draft or submit
+- **Completed** — when they sign off and submit
+- **Durations** calculated between each stage:
+  - Time to first save (how long before first interaction)
+  - First save to completion (revision/review time across sessions)
+  - Total duration (end-to-end from open to sign-off)
+
+### Phase 11 — UI-Configurable API Key [COMPLETE]
+
+The Anthropic API key can be set directly from the Settings page — no need to manually edit `.env` files.
+
+- Password-masked input field with Change/Save/Cancel flow
+- Key saved to `.env` file and applied immediately (no restart needed)
+- Health check section shows masked key and links to Configuration for setup
+
 ### Remaining Work
 
 - PDF export for read-only confirmation copy

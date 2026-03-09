@@ -94,6 +94,10 @@ def render():
             st.error("Form not found.")
             return
 
+    # Track when the customer first opens the form
+    if "form_opened_at" not in st.session_state:
+        st.session_state.form_opened_at = datetime.now()
+
     if schema.description:
         st.write(schema.description)
 
@@ -195,9 +199,11 @@ def render():
         draft.submitted_at = datetime.now()
         draft.signed_off = True
         draft.signed_off_at = datetime.now()
+        draft.completed_at = datetime.now()
         save_response(draft)
 
         st.session_state.pop("active_draft", None)
+        st.session_state.pop("form_opened_at", None)
         st.success("Thank you! Your responses have been submitted successfully.")
         st.balloons()
 
@@ -214,11 +220,14 @@ def _build_draft(schema, existing_draft, customer_name, answers) -> FormResponse
         existing_draft.customer_name = customer_name or None
         existing_draft.answers = answers
         return existing_draft
+    now = datetime.now()
     return FormResponse(
         schema_id=schema.id,
         schema_version=schema.version,
         customer_name=customer_name or None,
         answers=answers,
+        opened_at=st.session_state.get("form_opened_at", now),
+        first_saved_at=now,
     )
 
 

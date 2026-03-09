@@ -79,5 +79,8 @@ class FormResponse(BaseModel):
     submitted_at: Optional[datetime] = None
     signed_off: bool = False
     signed_off_at: Optional[datetime] = None
+    opened_at: Optional[datetime] = None
+    first_saved_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
     output_generated: bool = False
     output_generated_at: Optional[datetime] = None

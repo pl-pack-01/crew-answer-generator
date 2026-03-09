@@ -484,15 +484,19 @@ def _render_responses():
                 else:
                     from datetime import datetime
                     status = ResponseStatus.SUBMITTED if data.get("status") == "submitted" else ResponseStatus.DRAFT
+                    now = datetime.now()
                     response = FormResponse(
                         schema_id=data["schema_id"],
                         schema_version=data["schema_version"],
                         status=status,
                         customer_name=data.get("customer_name"),
                         answers=data.get("answers", {}),
-                        submitted_at=datetime.now() if status == ResponseStatus.SUBMITTED else None,
+                        submitted_at=now if status == ResponseStatus.SUBMITTED else None,
                         signed_off=data.get("signed_off", False),
-                        signed_off_at=datetime.now() if data.get("signed_off") else None,
+                        signed_off_at=now if data.get("signed_off") else None,
+                        opened_at=now,
+                        first_saved_at=now,
+                        completed_at=now if status == ResponseStatus.SUBMITTED else None,
                     )
                     save_response(response)
                     st.success(
@@ -533,6 +537,23 @@ def _render_responses():
                 _render_response_card(resp, archived=True)
 
 
+def _format_duration(delta) -> str:
+    """Format a timedelta as a human-readable string like '2d 3h 15m'."""
+    total_seconds = int(delta.total_seconds())
+    if total_seconds < 60:
+        return f"{total_seconds}s"
+    days, remainder = divmod(total_seconds, 86400)
+    hours, remainder = divmod(remainder, 3600)
+    minutes = remainder // 60
+    parts = []
+    if days:
+        parts.append(f"{days}d")
+    if hours:
+        parts.append(f"{hours}h")
+    parts.append(f"{minutes}m")
+    return " ".join(parts)
+
+
 def _response_status_badge(resp: FormResponse) -> str:
     if resp.status == ResponseStatus.ARCHIVED:
         return "⚪ Archived"
@@ -557,8 +578,21 @@ def _render_response_card(resp: FormResponse, archived: bool = False):
 
         with col_info:
             st.write(f"**Response ID:** `{resp.id}`")
-            st.write(f"**Submitted:** {resp.submitted_at.strftime('%Y-%m-%d %H:%M') if resp.submitted_at else 'N/A'}")
             st.write(f"**Schema version:** v{resp.schema_version}")
+
+            # Timeline
+            st.write(f"**Opened:** {resp.opened_at.strftime('%Y-%m-%d %H:%M') if resp.opened_at else 'N/A'}")
+            st.write(f"**First saved:** {resp.first_saved_at.strftime('%Y-%m-%d %H:%M') if resp.first_saved_at else 'N/A'}")
+            st.write(f"**Completed:** {resp.completed_at.strftime('%Y-%m-%d %H:%M') if resp.completed_at else 'N/A'}")
+
+            # Durations between stages
+            if resp.opened_at and resp.first_saved_at:
+                st.write(f"**Time to first save:** {_format_duration(resp.first_saved_at - resp.opened_at)}")
+            if resp.first_saved_at and resp.completed_at:
+                st.write(f"**First save to completion:** {_format_duration(resp.completed_at - resp.first_saved_at)}")
+            if resp.opened_at and resp.completed_at:
+                st.write(f"**Total duration:** {_format_duration(resp.completed_at - resp.opened_at)}")
+
             if resp.output_generated:
                 st.write(f"**Output generated:** {resp.output_generated_at.strftime('%Y-%m-%d %H:%M') if resp.output_generated_at else 'Yes'}")
 

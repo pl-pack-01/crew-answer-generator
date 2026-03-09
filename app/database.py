@@ -82,6 +82,9 @@ CREATE TABLE IF NOT EXISTS form_responses (
     submitted_at TEXT,
     signed_off INTEGER NOT NULL DEFAULT 0,
     signed_off_at TEXT,
+    opened_at TEXT,
+    first_saved_at TEXT,
+    completed_at TEXT,
     output_generated INTEGER NOT NULL DEFAULT 0,
     output_generated_at TEXT,
     FOREIGN KEY (schema_id, schema_version) REFERENCES form_schemas(id, version)
@@ -104,6 +107,14 @@ def _migrate(conn: sqlite3.Connection):
         conn.execute("ALTER TABLE form_responses ADD COLUMN output_generated INTEGER NOT NULL DEFAULT 0")
     if "output_generated_at" not in cols:
         conn.execute("ALTER TABLE form_responses ADD COLUMN output_generated_at TEXT")
+    if "started_at" in cols:
+        conn.execute("ALTER TABLE form_responses RENAME COLUMN started_at TO opened_at")
+    if "opened_at" not in cols and "started_at" not in cols:
+        conn.execute("ALTER TABLE form_responses ADD COLUMN opened_at TEXT")
+    if "first_saved_at" not in cols:
+        conn.execute("ALTER TABLE form_responses ADD COLUMN first_saved_at TEXT")
+    if "completed_at" not in cols:
+        conn.execute("ALTER TABLE form_responses ADD COLUMN completed_at TEXT")
 
 
 # --- Schema operations ---
@@ -357,8 +368,9 @@ def save_response(response: FormResponse) -> None:
             """INSERT OR REPLACE INTO form_responses
                (id, schema_id, schema_version, status, draft_code, customer_name,
                 answers_json, submitted_at, signed_off, signed_off_at,
+                opened_at, first_saved_at, completed_at,
                 output_generated, output_generated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 response.id,
                 response.schema_id,
@@ -370,6 +382,9 @@ def save_response(response: FormResponse) -> None:
                 response.submitted_at.isoformat() if response.submitted_at else None,
                 1 if response.signed_off else 0,
                 response.signed_off_at.isoformat() if response.signed_off_at else None,
+                response.opened_at.isoformat() if response.opened_at else None,
+                response.first_saved_at.isoformat() if response.first_saved_at else None,
+                response.completed_at.isoformat() if response.completed_at else None,
                 1 if response.output_generated else 0,
                 response.output_generated_at.isoformat() if response.output_generated_at else None,
             ),
@@ -437,6 +452,9 @@ def _row_to_response(row: sqlite3.Row) -> FormResponse:
         submitted_at=datetime.fromisoformat(row["submitted_at"]) if row["submitted_at"] else None,
         signed_off=bool(row["signed_off"]),
         signed_off_at=datetime.fromisoformat(row["signed_off_at"]) if row["signed_off_at"] else None,
+        opened_at=datetime.fromisoformat(row["opened_at"]) if "opened_at" in col_names and row["opened_at"] else None,
+        first_saved_at=datetime.fromisoformat(row["first_saved_at"]) if "first_saved_at" in col_names and row["first_saved_at"] else None,
+        completed_at=datetime.fromisoformat(row["completed_at"]) if "completed_at" in col_names and row["completed_at"] else None,
         output_generated=bool(row["output_generated"]) if "output_generated" in col_names else False,
         output_generated_at=datetime.fromisoformat(row["output_generated_at"]) if "output_generated" in col_names and row["output_generated_at"] else None,
     )
