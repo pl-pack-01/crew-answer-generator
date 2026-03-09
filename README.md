@@ -25,7 +25,7 @@ A dynamic form rendered from the schema with:
 - Only **live** schemas are visible to customers
 
 ### Filled Document Output
-Customer answers are merged back into a generated DOCX document, ready for download — no manual re-entry required. Each response is permanently tied to the schema version it was submitted against.
+Customer answers are merged back into a generated DOCX document, ready for download — no manual re-entry required. All questions from the schema are included; questions hidden by progressive disclosure are marked as *N/A — Not applicable based on responses*. Each response is permanently tied to the schema version it was submitted against.
 
 ## Setup
 
@@ -205,6 +205,7 @@ The schema drives a dynamic Streamlit form. Routing questions determine which do
 Customer answers are mapped back and a pre-filled DOCX is generated. Responses are permanently tied to the schema version they were submitted against.
 
 - DOCX generation with all Q&A pairs, section headings, customer info
+- Questions hidden by progressive disclosure marked as *N/A — Not applicable*
 - Download from admin responses tab
 - Audit trail: submitter, schema version, timestamp, sign-off status
 

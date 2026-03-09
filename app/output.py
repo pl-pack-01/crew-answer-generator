@@ -11,6 +11,25 @@ from docx.shared import Pt
 from .models import FormResponse, FormSchema
 
 
+def _evaluate_conditions(conditions, answers) -> bool:
+    """Check if a question's conditions are met. Returns True if the question should be visible."""
+    if not conditions:
+        return True
+    for cond in conditions:
+        current_val = answers.get(cond.question_id)
+        if current_val is None:
+            return False
+        if cond.operator == "equals" and current_val != cond.value:
+            return False
+        if cond.operator == "not_equals" and current_val == cond.value:
+            return False
+        if cond.operator == "contains" and cond.value not in (current_val if isinstance(current_val, list) else [current_val]):
+            return False
+        if cond.operator == "in" and current_val not in cond.value:
+            return False
+    return True
+
+
 def generate_filled_docx(schema: FormSchema, response: FormResponse, output_path: str) -> Path:
     """Generate a new DOCX with all questions and their answers filled in."""
     doc = Document()
@@ -37,18 +56,27 @@ def generate_filled_docx(schema: FormSchema, response: FormResponse, output_path
             doc.add_paragraph(section.description)
 
         for question in section.questions:
+            # Determine if this question was visible to the customer
+            visible = _evaluate_conditions(question.conditions, response.answers)
+
             # Question text in bold
             q_para = doc.add_paragraph()
             run = q_para.add_run(question.text)
             run.bold = True
             run.font.size = Pt(11)
 
-            # Answer
-            answer = response.answers.get(question.id, "")
-            if isinstance(answer, list):
-                answer = ", ".join(answer)
-            a_para = doc.add_paragraph(answer or "(No answer provided)")
-            a_para.paragraph_format.left_indent = Pt(18)
+            if not visible:
+                # Question was hidden by progressive disclosure
+                a_para = doc.add_paragraph("N/A — Not applicable based on responses")
+                a_para.paragraph_format.left_indent = Pt(18)
+                a_para.runs[0].italic = True
+            else:
+                # Answer
+                answer = response.answers.get(question.id, "")
+                if isinstance(answer, list):
+                    answer = ", ".join(answer)
+                a_para = doc.add_paragraph(answer or "(No answer provided)")
+                a_para.paragraph_format.left_indent = Pt(18)
 
     path = Path(output_path)
     doc.save(str(path))
