@@ -31,7 +31,7 @@ Customer answers are merged back into a generated DOCX document, ready for downl
 
 ### Prerequisites
 - Python 3.11+ ([Windows](https://apps.microsoft.com/detail/9nrwmjp3717k) · [macOS/Linux](https://www.python.org/downloads/)) — make sure "Add to PATH" is checked during install
-- An Anthropic API key ([get one here](https://console.anthropic.com/)) — needed for document parsing, optional for everything else
+- An Anthropic API key ([get one here](https://console.anthropic.com/)) — needed for document parsing, optional for everything else. Enter it in **Settings** after launching the app
 
 ### Quick Start (Recommended)
 
@@ -48,8 +48,9 @@ chmod +x start.sh   # first time only
 On first run, the script will:
 1. Create a virtual environment
 2. Install all dependencies
-3. Create a `.env` file from the example (edit it to add your API key)
+3. Create a `.env` file from the example
 4. Launch the app in your browser
+5. Go to **Settings** in the sidebar and enter your Anthropic API key
 
 ### Manual Setup
 
@@ -62,9 +63,8 @@ cd crew-answer-generator
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-copy .env.example .env
-# Edit .env and add your Anthropic API key
 streamlit run app/main.py
+# Go to Settings in the sidebar to enter your Anthropic API key
 ```
 
 **macOS/Linux:**
@@ -74,9 +74,8 @@ cd crew-answer-generator
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env
-# Edit .env and add your Anthropic API key
 streamlit run app/main.py
+# Go to Settings in the sidebar to enter your Anthropic API key
 ```
 
 ### After Launch
@@ -93,7 +92,7 @@ The app will be available at `http://localhost:8501`.
 5. Upload new versions at any time — previous versions are preserved and archived automatically
 6. **Export as HTML** — download a self-contained HTML form for any live schema. Send it to customers to fill out offline — no hosting required
 7. **Customer Responses** — view active and archived submissions, download filled DOCX documents, track output generation status, archive completed responses, or **Import JSON** responses returned from exported HTML forms
-8. **Settings** — view connection health (database, file storage, Anthropic API), configure screenshot upload limits, and manage data storage paths (with option to move existing files)
+8. **Settings** — view connection health (database, file storage, Anthropic API), set your Anthropic API key, configure screenshot upload limits, and manage data storage paths (with option to move existing files)
 
 ### Customer Workflow (Online)
 1. Navigate to **Customer Intake** in the sidebar

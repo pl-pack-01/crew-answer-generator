@@ -11,6 +11,31 @@ from app import config
 from app.storage import get_file_storage, reset_file_storage
 
 
+_ENV_PATH = Path(__file__).parent.parent.parent / ".env"
+
+
+def _save_api_key(key: str) -> None:
+    """Save API key to .env file and update the current environment."""
+    os.environ["ANTHROPIC_API_KEY"] = key
+
+    # Read existing .env or start fresh
+    lines = []
+    if _ENV_PATH.exists():
+        lines = _ENV_PATH.read_text().splitlines()
+
+    # Replace or append the key
+    found = False
+    for i, line in enumerate(lines):
+        if line.startswith("ANTHROPIC_API_KEY="):
+            lines[i] = f"ANTHROPIC_API_KEY={key}"
+            found = True
+            break
+    if not found:
+        lines.append(f"ANTHROPIC_API_KEY={key}")
+
+    _ENV_PATH.write_text("\n".join(lines) + "\n")
+
+
 def render():
     st.title("Settings")
 
@@ -94,7 +119,7 @@ def _check_anthropic_api():
 
     if not api_key or api_key == "your-api-key-here":
         st.error("Not configured")
-        st.caption("Set `ANTHROPIC_API_KEY` in your `.env` file.")
+        st.caption("Set your API key in the **Configuration** section below.")
         return
 
     # Mask the key for display
@@ -186,10 +211,43 @@ def _render_configuration():
         help="Upload subdirectory name within the data directory.",
     )
 
-    api_status = "Configured" if os.environ.get("ANTHROPIC_API_KEY", "") not in ("", "your-api-key-here") else "Not set"
-    st.text_input("Anthropic API key", value=api_status, disabled=True, key="cfg_api_key")
+    # --- API Key ---
+    current_api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    has_key = current_api_key and current_api_key != "your-api-key-here"
 
-    # Detect changes
+    if has_key and not st.session_state.get("editing_api_key"):
+        masked = current_api_key[:8] + "..." + current_api_key[-4:]
+        col_key, col_btn = st.columns([3, 1])
+        with col_key:
+            st.text_input("Anthropic API key", value=masked, disabled=True, key="cfg_api_display")
+        with col_btn:
+            st.write("")  # spacing
+            if st.button("Change", key="cfg_api_change"):
+                st.session_state["editing_api_key"] = True
+                st.rerun()
+    else:
+        new_api_key = st.text_input(
+            "Anthropic API key",
+            value="",
+            type="password",
+            key="cfg_api_key",
+            placeholder="Enter your API key" if not has_key else "Enter new API key",
+            help="Your Anthropic API key. Saved to .env file.",
+        )
+        col_save, col_cancel = st.columns([1, 1])
+        with col_save:
+            if st.button("Save API Key", key="cfg_api_save", type="primary", disabled=not new_api_key):
+                _save_api_key(new_api_key)
+                st.session_state.pop("editing_api_key", None)
+                st.success("API key saved.")
+                st.rerun()
+        if has_key:
+            with col_cancel:
+                if st.button("Cancel", key="cfg_api_cancel"):
+                    st.session_state.pop("editing_api_key", None)
+                    st.rerun()
+
+    # Detect path changes
     changed = (
         new_data_dir != current_data_dir
         or new_db_filename != current_db_filename
