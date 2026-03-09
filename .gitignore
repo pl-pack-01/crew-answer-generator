@@ -211,3 +211,6 @@ data/
 
 # Local app configuration (contains machine-specific paths)
 .streamlit/app_config.json
+
+# Claude Code local settings
+.claude/
