@@ -1,4 +1,5 @@
 @echo off
+setlocal enabledelayedexpansion
 title CREW Answer Generator
 echo.
 echo  ============================================
@@ -8,7 +9,7 @@ echo.
 
 :: Check for Python
 where python >nul 2>&1
-if %errorlevel% neq 0 (
+if !errorlevel! neq 0 (
     echo  [ERROR] Python is not installed or not in PATH.
     echo.
     echo  Please install Python 3.11+ from:
@@ -29,7 +30,7 @@ if not exist ".venv\Scripts\activate.bat" (
     echo.
     echo  Setting up virtual environment (first time only)...
     python -m venv .venv
-    if %errorlevel% neq 0 (
+    if !errorlevel! neq 0 (
         echo  [ERROR] Failed to create virtual environment.
         pause
         exit /b 1
@@ -43,7 +44,7 @@ call .venv\Scripts\activate.bat
 echo.
 echo  Checking dependencies...
 pip install -r requirements.txt --quiet --disable-pip-version-check
-if %errorlevel% neq 0 (
+if !errorlevel! neq 0 (
     echo  [ERROR] Failed to install dependencies.
     pause
     exit /b 1
