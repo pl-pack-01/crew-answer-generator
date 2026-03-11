@@ -297,6 +297,74 @@ The Anthropic API key can be set directly from the Settings page — no need to 
 - Change diff: see what questions changed between versions
 - Rollback: re-promote any prior version (partially implemented — archived versions can be re-promoted)
 
+## Security Considerations for Hosted Deployment
+
+Running locally, the app is only accessible on your machine. Hosting it on a network or the internet introduces additional attack surfaces. Address the following before deploying.
+
+### Authentication & Authorization
+
+- **Add authentication** — Streamlit has no built-in auth. Use an identity provider (SSO/LDAP/Azure AD) or a reverse proxy (NGINX, Caddy) with authentication middleware in front of the app.
+- **Role separation** — enforce admin vs. customer access server-side. Ensure customers cannot reach admin endpoints or API routes by manipulating the URL or session state.
+
+### Transport Security
+
+- **Enforce HTTPS** — all traffic must be encrypted in transit. Use a reverse proxy with TLS termination (e.g., NGINX + Let's Encrypt, or Azure App Service built-in TLS).
+- **Secure cookies** — if using session-based auth, ensure cookies are marked `Secure`, `HttpOnly`, and `SameSite`.
+
+### API Key & Secrets Management
+
+- **Never expose the Anthropic API key to the client.** The current `.env` approach is acceptable for local use but should be replaced with a secrets manager (Azure Key Vault, AWS Secrets Manager, or environment variables injected at deploy time) for hosted environments.
+- **Rotate keys** regularly and monitor usage for anomalies.
+
+### File Upload Hardening
+
+- **Validate file types** — restrict uploads to expected formats (DOCX, PNG, JPG, GIF) by checking both extension and MIME type.
+- **Enforce file size limits** — prevent denial of service from oversized uploads.
+- **Scan uploads** — consider antivirus/malware scanning for uploaded documents.
+- **Store uploads outside the web root** — ensure uploaded files are not directly accessible via URL.
+
+### Database
+
+- **SQLite is not suitable for concurrent network access.** For hosted deployment, migrate to PostgreSQL or MySQL (the storage layer is already designed for this swap — see [database.py](app/database.py)).
+- **Parameterized queries** — audit all SQL for injection vulnerabilities. The current codebase uses parameterized queries, but any new queries must follow the same pattern.
+- **Backups** — implement automated database backups.
+
+### Session & Multi-Tenancy
+
+- **Streamlit session isolation** — Streamlit was not designed as a multi-tenant production server. Session state can leak between users under edge conditions. Test thoroughly under concurrent load.
+- **Rate limiting** — add rate limiting at the reverse proxy layer to prevent abuse.
+- **CSRF protection** — Streamlit does not provide CSRF tokens. A reverse proxy or WAF can help mitigate this.
+
+### Network & Infrastructure
+
+- **Prefer internal/VPN access** — the simplest mitigation is to host behind a VPN or on an internal network, limiting exposure to trusted users only.
+- **Firewall rules** — restrict inbound access to only necessary ports (443 for HTTPS).
+- **Logging & monitoring** — enable access logs, error logs, and alerting for suspicious activity (failed logins, unusual upload patterns, high request volume).
+
+### Data Protection
+
+- **Encryption at rest** — customer intake responses may contain sensitive business information. Enable disk encryption or database-level encryption.
+- **Data retention policy** — define how long responses and uploaded documents are kept. The archive feature supports this workflow but automatic purging is not yet implemented.
+- **Access audit trail** — log who accessed what data and when.
+
+### Recommended Hosting Architecture
+
+```
+Internet / VPN
+       ↓
+ Reverse Proxy (NGINX/Caddy)
+ ├─ TLS termination
+ ├─ Authentication (SSO/LDAP)
+ ├─ Rate limiting
+ └─ CSRF / WAF rules
+       ↓
+ Streamlit App (internal only, no direct exposure)
+       ↓
+ PostgreSQL + File Storage (encrypted, backed up)
+       ↓
+ Secrets Manager (API keys, DB credentials)
+```
+
 ## Pilot Recommendation
 
 Start with **Data Movement or External Integrations** — the highest-friction intake area, with the most naturally structured field types (IPs, endpoints, protocols, environment names all map cleanly to dropdowns).
