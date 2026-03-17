@@ -38,6 +38,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     outputs:
       new_tag: ${{ steps.bump.outputs.new_tag }}
+      image_version: ${{ steps.bump.outputs.image_version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -49,10 +50,12 @@ jobs:
           latest=$(git tag -l 'v*' --sort=-v:refname | head -n1)
           if [ -z "$latest" ]; then
             echo "new_tag=v1.0.0" >> "$GITHUB_OUTPUT"
+            echo "image_version=1.0.0" >> "$GITHUB_OUTPUT"
           else
             major=$(echo "$latest" | sed 's/v//' | cut -d. -f1)
             minor=$(echo "$latest" | sed 's/v//' | cut -d. -f2)
             echo "new_tag=v${major}.$((minor + 1)).0" >> "$GITHUB_OUTPUT"
+            echo "image_version=${major}.$((minor + 1)).0" >> "$GITHUB_OUTPUT"
           fi
           echo "Latest: $latest → Next: $(cat "$GITHUB_OUTPUT" | grep new_tag | cut -d= -f2)"
 
@@ -127,7 +130,7 @@ jobs:
             ## Docker Image
 
             ```bash
-            docker pull ghcr.io/${{ github.repository }}:${{ needs.version.outputs.new_tag }}
+            docker pull ghcr.io/${{ github.repository }}:${{ needs.version.outputs.image_version }}
             ```
 
             ## What's Changed
