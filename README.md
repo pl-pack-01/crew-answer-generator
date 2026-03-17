@@ -314,13 +314,13 @@ The Anthropic API key can be set directly from the Settings page — no need to 
 
 ### Phase 12 — Docker & CI/CD [COMPLETE]
 
-Containerized deployment with automated build pipeline via GitHub Actions.
+Containerized deployment with automated build pipeline and release management via GitHub Actions.
 
 - Dockerfile using Python 3.11 slim, optimized layer caching, built-in healthcheck
-- GitHub Actions workflow: runs tests, then builds and pushes Docker image to GHCR
-- Triggers on push to `main`, version tags (`v*`), and pull requests
-- Pull requests build the image (to catch failures) but do not push
-- Version tags produce semver-tagged images (e.g., `1.0.0`, `1.0`)
+- GitHub Actions workflow with 4 jobs: **test → version → build → release**
+- Pull requests run tests and build the image (without pushing) to catch failures early
+- Push to `main` auto-increments the minor version (e.g., `v1.3.0` → `v1.4.0`), builds and pushes the Docker image to GHCR, and creates a GitHub Release with auto-generated release notes
+- For a major version bump, push the tag manually (`git tag v2.0.0 && git push origin v2.0.0`) — subsequent pushes to `main` continue from the new major (e.g., `v2.1.0`)
 - Build cache via GitHub Actions cache for faster subsequent builds
 
 ### Remaining Work
