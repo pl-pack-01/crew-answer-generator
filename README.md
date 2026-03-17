@@ -2,6 +2,12 @@
 
 Modernizing customer information intake from static Word/Excel questionnaires to a structured, guided intake system.
 
+**Docker image:** `ghcr.io/pl-pack-01/crew-answer-generator`
+
+```bash
+docker pull ghcr.io/pl-pack-01/crew-answer-generator:main
+```
+
 ## Problem
 
 - Customers navigate dozens of separate questionnaires with no single front door
