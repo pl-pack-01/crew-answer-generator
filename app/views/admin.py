@@ -10,6 +10,7 @@ from app.image_utils import process_screenshot
 from app.ingestion import ingest_document
 from app.models import FieldType, FormResponse, Question, ResponseStatus, SchemaStatus, Section
 from app.output import generate_filled_docx
+from app.schema_io import export_schema, import_schema
 from app.storage import (
     archive_schema,
     create_new_version,
@@ -340,6 +341,23 @@ def _status_badge(status: SchemaStatus) -> str:
 def _render_schemas():
     st.header("Form Schemas")
 
+    # --- Import Schema ---
+    with st.expander("Import Schema"):
+        uploaded_schema = st.file_uploader("Upload a schema JSON file", type=["json"], key="import_schema")
+        if uploaded_schema and st.button("Import Schema", key="btn_import_schema"):
+            try:
+                schema = import_schema(uploaded_schema.getvalue().decode("utf-8"))
+                save_schema(schema)
+                total_q = sum(len(s.questions) for s in schema.sections)
+                st.success(
+                    f"Imported **{schema.name}** as draft (v1) "
+                    f"with {total_q} questions across {len(schema.sections)} sections. "
+                    f"Review and promote when ready."
+                )
+                st.rerun()
+            except (ValueError, Exception) as e:
+                st.error(f"Failed to import schema: {e}")
+
     status_filter = st.selectbox(
         "Filter by status",
         ["All", "Draft", "Live", "Archived"],
@@ -391,6 +409,16 @@ def _render_schemas():
                         if st.button("Delete Draft", key=f"delete_{schema.id}_v{schema.version}"):
                             st.session_state[confirm_del_key] = True
                             st.rerun()
+
+                # Export Schema JSON (available for all statuses)
+                schema_json = export_schema(schema)
+                st.download_button(
+                    "Export Schema",
+                    schema_json,
+                    file_name=f"{schema.name.replace(' ', '_')}_v{schema.version}_schema.json",
+                    mime="application/json",
+                    key=f"export_schema_{schema.id}_v{schema.version}",
+                )
 
                 if schema.status == SchemaStatus.LIVE:
                     if st.button("Archive", key=f"archive_{schema.id}_v{schema.version}"):

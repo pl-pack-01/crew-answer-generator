@@ -90,10 +90,16 @@ Build and run as a container — no Python install required.
 
 ```bash
 docker build -t crew-answer-generator .
-docker run -p 8501:8501 -e ANTHROPIC_API_KEY=your-key-here -v crew-data:/app/data crew-answer-generator
+docker run -d -p 8501:8501 -e ANTHROPIC_API_KEY=your-key-here -v crew-data:/app/data --name crew crew-answer-generator
 ```
 
-The `-v crew-data:/app/data` volume mount persists the database and uploaded files across container restarts.
+The `-d` flag runs the container in the background — no terminal needed. The `-v crew-data:/app/data` volume mount persists the database and uploaded files across container restarts.
+
+```bash
+docker logs crew        # view logs
+docker stop crew        # stop the container
+docker start crew       # restart it later
+```
 
 ### After Launch
 
@@ -108,8 +114,10 @@ The app will be available at `http://localhost:8501`.
 4. **Create New Version** — clone a live or archived schema into a new editable draft. Keep the same name to create a new version, or change the name to fork it into an independent form (still linked to the original source document)
 5. Upload new versions at any time — previous versions are preserved and archived automatically
 6. **Export as HTML** — download a self-contained HTML form for any live schema. Send it to customers to fill out offline — no hosting required
-7. **Customer Responses** — view active and archived submissions, download filled DOCX documents, track output generation status, archive completed responses, or **Import JSON** responses returned from exported HTML forms
-8. **Settings** — view connection health (database, file storage, Anthropic API), set your Anthropic API key, configure screenshot upload limits, and manage data storage paths (with option to move existing files)
+7. **Export Schema** — download a schema as JSON to share with other team members or instances. Available for any schema status (draft, live, archived)
+8. **Import Schema** — upload a schema JSON file (from another CTL or instance) to create a new draft. Review, edit, and promote as usual
+9. **Customer Responses** — view active and archived submissions, download filled DOCX documents, track output generation status, archive completed responses, or **Import JSON** responses returned from exported HTML forms
+10. **Settings** — view connection health (database, file storage, Anthropic API), set your Anthropic API key, configure screenshot upload limits, and manage data storage paths (with option to move existing files)
 
 ### Customer Workflow (Online)
 1. Navigate to **Customer Intake** in the sidebar
@@ -141,12 +149,13 @@ crew-answer-generator/
 │   ├── output.py        # Filled DOCX generation
 │   ├── html_export.py   # Self-contained HTML form generator
 │   ├── image_utils.py   # Screenshot processing (resize, compress, base64)
+│   ├── schema_io.py     # Schema export/import (JSON serialization for sharing)
 │   ├── config.py        # Persistent app configuration (data paths)
 │   └── views/
 │       ├── admin.py     # Admin UI (upload, edit, promote, view responses)
 │       ├── customer.py  # Customer-facing guided form
 │       └── settings.py  # Settings, screenshot config, path management & health checks
-├── tests/               # pytest test suite (83 tests)
+├── tests/               # pytest test suite
 ├── data/                # Runtime data (SQLite DB, uploads) — gitignored, path configurable
 ├── .streamlit/
 │   ├── config.toml      # Streamlit UI settings
@@ -322,6 +331,16 @@ Containerized deployment with automated build pipeline and release management vi
 - Push to `main` auto-increments the minor version (e.g., `v1.3.0` → `v1.4.0`), builds and pushes the Docker image to GHCR, and creates a GitHub Release with auto-generated release notes
 - For a major version bump, push the tag manually (`git tag v2.0.0 && git push origin v2.0.0`) — subsequent pushes to `main` continue from the new major (e.g., `v2.1.0`)
 - Build cache via GitHub Actions cache for faster subsequent builds
+
+### Phase 13 — Schema Export & Import [COMPLETE]
+
+Schemas can be exported as JSON and shared between team members or instances. Specialized CTLs can build schemas and distribute them to other teams.
+
+- **Export Schema** button available on all schemas (draft, live, archived) — downloads a portable JSON file
+- **Import Schema** in the Form Schemas tab — upload a JSON file to create a new draft
+- Imported schemas get a fresh ID and start at version 1 to avoid collisions
+- Full roundtrip fidelity: sections, questions, field types, options, conditions, help text, and screenshots are all preserved
+- Also accepts raw FormSchema JSON (without the export wrapper) for flexibility
 
 ### Remaining Work
 
