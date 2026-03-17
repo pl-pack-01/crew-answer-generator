@@ -1,0 +1,13 @@
+.git
+.github
+.venv
+.env
+.claude
+__pycache__
+*.pyc
+.pytest_cache
+data/
+*.egg-info
+.mypy_cache
+.ruff_cache
+.streamlit/app_config.json

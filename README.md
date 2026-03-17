@@ -78,6 +78,17 @@ streamlit run app/main.py
 # Go to Settings in the sidebar to enter your Anthropic API key
 ```
 
+### Docker
+
+Build and run as a container — no Python install required.
+
+```bash
+docker build -t crew-answer-generator .
+docker run -p 8501:8501 -e ANTHROPIC_API_KEY=your-key-here -v crew-data:/app/data crew-answer-generator
+```
+
+The `-v crew-data:/app/data` volume mount persists the database and uploaded files across container restarts.
+
 ### After Launch
 
 The app will be available at `http://localhost:8501`.
@@ -134,8 +145,13 @@ crew-answer-generator/
 ├── .streamlit/
 │   ├── config.toml      # Streamlit UI settings
 │   └── app_config.json  # Local path configuration — gitignored
+├── .github/
+│   └── workflows/
+│       └── build.yml    # CI/CD: test, build Docker image, push to GHCR
 ├── start.bat            # One-click launcher (Windows)
 ├── start.sh             # One-click launcher (macOS/Linux)
+├── Dockerfile           # Container image definition
+├── .dockerignore        # Files excluded from Docker build
 ├── requirements.txt
 ├── .env.example
 └── .gitignore
@@ -289,6 +305,17 @@ The Anthropic API key can be set directly from the Settings page — no need to 
 - Password-masked input field with Change/Save/Cancel flow
 - Key saved to `.env` file and applied immediately (no restart needed)
 - Health check section shows masked key and links to Configuration for setup
+
+### Phase 12 — Docker & CI/CD [COMPLETE]
+
+Containerized deployment with automated build pipeline via GitHub Actions.
+
+- Dockerfile using Python 3.11 slim, optimized layer caching, built-in healthcheck
+- GitHub Actions workflow: runs tests, then builds and pushes Docker image to GHCR
+- Triggers on push to `main`, version tags (`v*`), and pull requests
+- Pull requests build the image (to catch failures) but do not push
+- Version tags produce semver-tagged images (e.g., `1.0.0`, `1.0`)
+- Build cache via GitHub Actions cache for faster subsequent builds
 
 ### Remaining Work
 
