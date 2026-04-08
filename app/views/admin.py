@@ -10,12 +10,13 @@ from app.image_utils import process_screenshot
 from app.ingestion import ingest_document
 from app.models import FieldType, FormResponse, Question, ResponseStatus, SchemaStatus, Section
 from app.output import generate_filled_docx
-from app.schema_io import export_schema, import_schema
+from app.schema_io import export_schema_bundle, import_schema, import_schema_bundle
 from app.storage import (
     archive_schema,
     create_new_version,
     delete_schema,
     fork_schema,
+    get_file_storage,
     list_responses,
     list_schema_versions,
     list_schemas,
@@ -349,16 +350,28 @@ def _render_schemas():
     with st.expander("Import Schema"):
         if "import_schema_key" not in st.session_state:
             st.session_state["import_schema_key"] = 0
-        uploaded_schema = st.file_uploader("Upload a schema JSON file", type=["json"], key=f"import_schema_{st.session_state['import_schema_key']}")
+        uploaded_schema = st.file_uploader(
+            "Upload a schema file (.zip bundle or .json)",
+            type=["zip", "json"],
+            key=f"import_schema_{st.session_state['import_schema_key']}",
+        )
         if uploaded_schema and st.button("Import Schema", key="btn_import_schema"):
             try:
-                schema = import_schema(uploaded_schema.getvalue().decode("utf-8-sig"))
+                raw = uploaded_schema.getvalue()
+                if uploaded_schema.name.endswith(".zip"):
+                    schema, doc_bytes = import_schema_bundle(raw)
+                    if doc_bytes is not None and schema.source_filename:
+                        save_upload(schema.source_filename, doc_bytes)
+                else:
+                    schema = import_schema(raw.decode("utf-8-sig"))
+                    doc_bytes = None
                 save_schema(schema)
                 total_q = sum(len(s.questions) for s in schema.sections)
                 st.session_state["import_schema_key"] += 1
+                doc_note = " (source document restored)" if doc_bytes is not None else ""
                 st.success(
-                    f"Imported **{schema.name}** as draft (v1) "
-                    f"with {total_q} questions across {len(schema.sections)} sections. "
+                    f"Imported **{schema.name}** v{schema.version} as draft "
+                    f"with {total_q} questions across {len(schema.sections)} sections{doc_note}. "
                     f"Review and promote when ready."
                 )
                 st.rerun()
@@ -417,13 +430,18 @@ def _render_schemas():
                             st.session_state[confirm_del_key] = True
                             st.rerun()
 
-                # Export Schema JSON (available for all statuses)
-                schema_json = export_schema(schema)
+                # Export Schema bundle (available for all statuses)
+                # Include the source document if it was stored locally.
+                _doc_bytes = None
+                if schema.source_filename:
+                    _doc_bytes = get_file_storage().load(schema.source_filename)
+                _bundle = export_schema_bundle(schema, _doc_bytes)
+                _safe_name = schema.name.replace(" ", "_")
                 st.download_button(
                     "Export Schema",
-                    schema_json,
-                    file_name=f"{schema.name.replace(' ', '_')}_v{schema.version}_schema.json",
-                    mime="application/json",
+                    _bundle,
+                    file_name=f"{_safe_name}_v{schema.version}_schema.zip",
+                    mime="application/zip",
                     key=f"export_schema_{schema.id}_v{schema.version}",
                 )
 
