@@ -56,7 +56,10 @@ def _render_upload():
         "The schema will be created as a **draft** — review, edit, and promote to **live** when ready."
     )
 
-    uploaded_file = st.file_uploader("Choose a DOCX file", type=["docx"])
+    if "upload_docx_key" not in st.session_state:
+        st.session_state["upload_docx_key"] = 0
+
+    uploaded_file = st.file_uploader("Choose a DOCX file", type=["docx"], key=f"upload_docx_{st.session_state['upload_docx_key']}")
 
     if uploaded_file and st.button("Parse Document"):
         with st.spinner("Saving file..."):
@@ -74,6 +77,7 @@ def _render_upload():
                 st.info("Go to **Form Schemas** tab to preview, edit questions, and promote to live.")
 
                 _render_schema_preview(schema)
+                st.session_state["upload_docx_key"] += 1
 
             except Exception as e:
                 st.error(f"Failed to parse document: {e}")
@@ -343,12 +347,15 @@ def _render_schemas():
 
     # --- Import Schema ---
     with st.expander("Import Schema"):
-        uploaded_schema = st.file_uploader("Upload a schema JSON file", type=["json"], key="import_schema")
+        if "import_schema_key" not in st.session_state:
+            st.session_state["import_schema_key"] = 0
+        uploaded_schema = st.file_uploader("Upload a schema JSON file", type=["json"], key=f"import_schema_{st.session_state['import_schema_key']}")
         if uploaded_schema and st.button("Import Schema", key="btn_import_schema"):
             try:
                 schema = import_schema(uploaded_schema.getvalue().decode("utf-8-sig"))
                 save_schema(schema)
                 total_q = sum(len(s.questions) for s in schema.sections)
+                st.session_state["import_schema_key"] += 1
                 st.success(
                     f"Imported **{schema.name}** as draft (v1) "
                     f"with {total_q} questions across {len(schema.sections)} sections. "
@@ -479,10 +486,13 @@ def _render_schemas():
 
             # Upload new version
             st.divider()
+            update_key = f"update_docx_key_{schema.id}"
+            if update_key not in st.session_state:
+                st.session_state[update_key] = 0
             new_file = st.file_uploader(
                 f"Upload new version for '{schema.name}'",
                 type=["docx"],
-                key=f"update_{schema.id}",
+                key=f"update_{schema.id}_{st.session_state[update_key]}",
             )
             if new_file and st.button("Parse New Version", key=f"btn_update_{schema.id}"):
                 with st.spinner("Parsing new version..."):
@@ -491,6 +501,7 @@ def _render_schemas():
                     new_schema.id = schema.id
                     new_schema.version = schema.version + 1
                     save_schema(new_schema)
+                    st.session_state[update_key] += 1
                     st.success(f"v{new_schema.version} created as **draft**. Review and promote when ready.")
                     st.rerun()
 
@@ -502,7 +513,9 @@ def _render_responses():
 
     # --- Import JSON response ---
     with st.expander("Import JSON response"):
-        uploaded_json = st.file_uploader("Upload a JSON response file", type=["json"], key="import_json")
+        if "import_json_key" not in st.session_state:
+            st.session_state["import_json_key"] = 0
+        uploaded_json = st.file_uploader("Upload a JSON response file", type=["json"], key=f"import_json_{st.session_state['import_json_key']}")
         if uploaded_json and st.button("Import", key="btn_import_json"):
             try:
                 data = json.loads(uploaded_json.getvalue())
@@ -527,6 +540,7 @@ def _render_responses():
                         completed_at=now if status == ResponseStatus.SUBMITTED else None,
                     )
                     save_response(response)
+                    st.session_state["import_json_key"] += 1
                     st.success(
                         f"Imported response from **{response.customer_name or 'Unknown'}** "
                         f"for **{schema.name}** v{schema.version} ({status.value})."
