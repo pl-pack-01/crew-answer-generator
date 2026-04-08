@@ -40,9 +40,11 @@ def import_schema(json_str: str) -> FormSchema:
     elif "sections" in data and "name" in data:
         schema_data = data
     else:
+        found = list(data.keys()) if isinstance(data, dict) else type(data).__name__
         raise ValueError(
             "Invalid schema file. Expected an exported schema JSON "
-            "with 'export_version' and 'schema' keys, or a raw FormSchema."
+            "with 'export_version' and 'schema' keys, or a raw FormSchema "
+            f"with 'name' and 'sections' keys. Got: {found}"
         )
 
     schema = FormSchema.model_validate(schema_data)

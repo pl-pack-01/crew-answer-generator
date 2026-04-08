@@ -346,7 +346,7 @@ def _render_schemas():
         uploaded_schema = st.file_uploader("Upload a schema JSON file", type=["json"], key="import_schema")
         if uploaded_schema and st.button("Import Schema", key="btn_import_schema"):
             try:
-                schema = import_schema(uploaded_schema.getvalue().decode("utf-8"))
+                schema = import_schema(uploaded_schema.getvalue().decode("utf-8-sig"))
                 save_schema(schema)
                 total_q = sum(len(s.questions) for s in schema.sections)
                 st.success(
